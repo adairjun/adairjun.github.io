@@ -38,9 +38,5 @@
     <% } %>
     <time datetime="<%= date_xml(item.date) %>" itemprop="datePublished"><%= item.date.format(config.date_format) %></time>
   </a>
-<% if (item.excerpt && index){ %>
- <% } else { %>
-   <span id="busuanzi_value_page_pv"></span>次访问
- <% } %>
 </section>
 <% } %>
