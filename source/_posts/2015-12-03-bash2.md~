@@ -1,0 +1,344 @@
+title: shell脚本总结篇(二）：shell脚本语法
+date: 2015-12-03 23:59:02
+categories: bash
+tags:  [bash, shell]
+---
+
+## shell的语法
+
+### shell函数
+定义shell函数有两种形式
+```
+function name  {
+    commands
+}
+```
+
+```
+name() {
+    commands
+}
+```
+要使用函数只需要name，而不需要括号，就是说不用name()
+
+有关shell函数的返回值:
+函数当中使用echo来返回值，比如获取本机的ip地址:
+```
+#!/bin/bash
+
+function name() {
+  echo $(ifconfig | grep "192." | awk '{print substr($2, 6)}')
+}
+
+#使用result来接收函数返回值
+result=$(name)
+
+echo "result " ${result}
+```
+我有一个经常犯的错误就是使用result赋值的时候，等号两边都会留有空格，因为我写惯了C++程序。但是在shell脚本当中不能这么做，会报错的。
+
+
+### shell当中的循环
+
+#### while循环
+
+首先介绍一下死循环，类似于C语言当中的while(true).
+shell当中的死循环是while后面接一个空格，空格后接一个冒号
+```
+while :
+do
+  echo "hello"
+done
+```
+
+while条件循环:通过中括号来执行条件判断
+
+```
+#!/bin/bash
+
+i=0
+
+while [ "$i" != "10" ]
+do
+  i=$[$i+1]
+  echo $i
+done
+
+```
+
+for..in 条件循环:
+还是举这个例子，删除七天前的日志：
+```
+#!/bin/bash
+#日志的目录在/root/log-xxxx/ 目录下
+dir="/root/log-*/"
+
+#在dir目录下查找七天之前修改的日志，并删除
+for file in `find $dir -maxdepth 1 -name "*.log" -mtime +7`;do 
+    echo $file
+    rm $file
+done
+```
+
+类似C语言的for(;;)循环:
+```
+#!/bin/bash
+
+for((i=0; i<10; ++i))
+do
+  echo $i
+done
+
+```
+这里`for`当中的两个括号之间不能有空格，必须紧贴，如果是这样将报错:
+```
+#!/bin/bash
+
+for( (i=0; i<10; ++i) ) 
+do
+  echo $i
+done
+
+```
+
+### shell当中的数组：
+用一个我工作当中的实例来说明最好不过了：zui
+
+现在要写一个恢复redis数据库的脚本：要求把`/home/data/redis9379/`这个目录下的所有`dump.rdb`列举出来，然后选择一个文件替换掉`dump.rdb`
+列举出来的文件如下：
+```
+dump.rdb.201509210000
+dump.rdb.201509210100
+.....
+以此类推
+```
+
+设计思想是这样的，列举选择的是：
+```
+ls /home/data/redis9379/ | grep "dump.rdb." | sort -nr
+```
+然后用户选择的话，就直接在终端输入文件名称，然后shell脚本使用`read`读入文件名称，用cp进行替换。
+但是这样的问题就是，手动输入文件名称特别不方便，能不能使用代号直接表示文件名呢？就是说shell里面有没有map来对应？
+
+当然有啦，就是这里要讲到的数组了：
+使用shell数组来代替map，shell数组并不需要先定义，直接使用即可。
+示例：
+```
+read  number
+array[0]=$number
+```
+那么需要读取数组的信息要使用花括号，`${array[0]}`
+获取数组中的所有元素使用`*`或者`@`  也就是`${array[*]}`
+获取数组元素的个数：
+```
+length=${#array_name[@]}
+```
+
+我的整体实现代码：
+```
+#!/bin/bash
+
+#====================================
+# Created On: Sep 22, 2015
+# Author: Xiong Jun
+#====================================
+
+# list all redis database of /home/data/redis9379/
+echo -ne "\033[32m"; echo "==========The file in /home/data/redis9379/ is============="; echo -ne "\033[0m" 
+
+count=0
+for i in $(ls /home/data/redis9379/ | grep "dump.rdb." | sort -nr)
+do
+  #这一行把数组赋值
+  map[$count]=$i
+  #这一行打印出count 和数组的关系
+  echo "$count " ${map[$count]}                                         
+  count=$[$count+1]
+done
+
+echo -ne "\033[32m"; echo "==========================================================="; echo -ne "\033[0m" 
+
+echo "please input the file number which you want to replace dump.rdb"
+echo "example : 0"
+read number 
+if [ ! -f /home/data/redis9379/${map[$number]} ]                 #只需要读取number
+then
+echo -ne "\033[31m" 
+echo "sorry, the file is not exist in /home/data/redis9379/"
+echo -ne "\033[0m" 
+exit 
+fi
+
+# shutdown redis
+echo -ne "\033[32m" 
+echo "************stopping redis**********************"
+echo -ne "\033[0m" 
+#由于redis安装在/usr/local/bin目录下，这里使用绝对路径操作redis
+/usr/local/bin/redis-cli -p 9379 shutdown
+
+# overwrite dump.rdb
+cp /home/data/redis9379/dump.rdb /home/data/redis9379/dump.rdb.bak
+cp /home/data/redis9379/${map[$number]} /home/data/redis9379/dump.rdb
+
+# restart redis
+echo -ne "\033[32m" 
+echo "************restarting redis**********************"
+echo -ne "\033[0m" 
+/usr/local/bin/redis-server /opt/sysconf/redis.conf
+```
+
+### shell脚本当中调用另外脚本的三种方法：
+
+先写一个测试脚本`test.sh`:
+```
+#!/bin/bash
+echo 'your are in first file'
+```
+
+方法一：使用`source`（我使用的方法）
+是不是觉得很眼熟呢？当然了，经常使用的命令
+```
+source /etc/profile
+```
+
+那么这个脚本`main.sh`就应该这么写：
+```
+#!/bin/bash
+echo 'your are in second file'
+source test.sh
+```
+
+方法二：使用`.`
+
+```
+#!/bin/bash
+echo 'your are in second file'
+. test.sh
+```
+
+方法三：使用`sh`,不过这种是直接执行test.sh了，并不像上面的方法是把外部的脚本包含进来。
+```
+#!/bin/bash
+echo 'your are in second file'
+sh  test.sh
+```
+
+### shell的here document方法：
+这个在mysql相关的脚本当中实在是太常用了：
+
+创建`mysql`的数据库`study`,以及表`Account`:
+```
+MYSQL_SERVER_IP=127.0.0.1
+MYSQL_SERVER_PORT=3306
+MYSQL_SERVER_USER=root
+MYSQL_SERVER_PWD=passwd
+MYSQL_SERVER_DB=study
+
+mysql -h${MYSQL_SERVER_IP} -P${MYSQL_SERVER_PORT} -u${MYSQL_SERVER_USER} -p${MYSQL_SERVER_PWD} <<EOF
+#DROP database if exists ${MYSQL_SERVER_DB};
+CREATE DATABASE ${MYSQL_SERVER_DB};
+use ${MYSQL_SERVER_DB}
+
+DROP TABLE IF EXISTS Account;  
+CREATE TABLE Account (  
+	Date 			varchar(30) NOT NULL, 
+	AccountID 	bigint NOT NULL, 
+	Detail 			varchar(100), 
+  PRIMARY KEY (Date, AccounrID)  
+)ENGINE=InnoDB DEFAULT CHARSET=gb2312;  
+EOF
+```
+
+here document是shell脚本当中一种特殊的重定向方式：
+```
+cmd << EOF
+  Here Document Content
+EOF
+```
+作用就是将两个 EOF 之间的内容(Here Document Content 部分) 传递给cmd 作为输入参数。就像上面的mysql脚本一样，把sql作为参数传递给了`mysql -h${MYSQL_SERVER_IP} -P${MYSQL_SERVER_PORT} -u${MYSQL_SERVER_USER} -p${MYSQL_SERVER_PWD}`。
+
+
+
+### shell还有一个很经典的用法：就是分离参数和选项
+
+首先谈一谈什么是分离参数和选项：
+
+```
+grep -l "hello" test.txt
+```
+请问：`grep`程序是怎么识别它的参数的？或者换句话来问：`grep`是如何知道`-l`是参数，`hello`是要匹配的字符，而`test.txt`是文件？
+`grep`内部有它的机制，而我们在这里讨论的只是如何让shell脚本做到和命令一样易用：就是通过不同的参数和选项来实现不同的功能。（虽然我一般只会在我的脚本当中写-h,--help这两个）
+
+首先看代码：
+`canshu.sh`:
+
+```
+#!/bin/bash
+while [ -n "$1" ]
+do
+  case "$1" in 
+    -a) echo "-a option" ;;
+    -b) echo "-b option" ;;
+    -c) echo "-c option" ;;
+    *) echo "$1 is not a option" ;;
+  esac
+shift
+done
+```
+
+关键在于shift，这个shift把`$2`变到了`$1`。这样就可以像使用linux命令一样使用脚本canshu.sh，加上选项-a -b -c,的时候-b本来是`$2`，经过shift变成了`$1`,同时-c就变成了`$2`,那么-b就进入了`case`的判断，而再经过一次shift之后，-c也就进入了`case`的判断。
+
+这里只不过解决了让shell脚本添加参数的问题，那么接下来才是分离参数和选项。
+
+linux处理这个问题的方式是使用双破折线（--）。bash和其他shell会用双破折线来表明选项结束了。看到双破折线之后，shell会将剩下的命令行参数当作参数来处理。（使用过node.js开发的程序员一定熟悉pm2的双破折线，这里是一样的意思）
+
+```
+#!/bin/bash
+while [ -n "$1" ]
+do
+case "$1" in 
+-a) echo "-a option" ;;
+-b) echo "-b option" ;;
+-c) echo "-c option" ;;
+--) shift #使用shift将当前的参数双破折线移除
+break ;;
+*) echo "$1 is not a option" ;;
+esac
+shift
+done
+
+count=1
+for param in $@
+do
+echo "para $count: $param"
+count=$[ $count+1 ]
+done
+```
+
+最后附上一些附录：是[《linux命令行与shell脚本编程大全》](http://book.douban.com/subject/11589828/)当中的，提到通用的linux命令选项，我编写shell脚本的时候当需要用到选项的时候（虽然情况非常少，我一般也就写写-h和--help），会参考这张表格:
+
+| 选项	       | 描述 |
+| --------     | ---: |
+|   -a     |显示一个对象  | 
+|  -c     |生成一个计数 |
+|  -d    |指定一个目录 |
+|  -e     |扩展一个对象 |
+|  -f     |指定读入数据的文件 |
+|  -h    |显示命令的帮助信息 |
+|  -i     |忽略文本大小写 |
+|  -l     |产生输出的长格式版本 |
+|  -n    |使用非交互模式（批量） |
+|  -o     |指定将所有输出重定向到的输出文件 |
+|  -q     |以安静模式运行 |
+|  -r     |递归地处理目录和文件 |
+|  -s     |以安静模式运行 |
+|  -v     |生成详细输出 |
+|  -x     |排除某个对象 |
+|  -y     |对所有问题回答yes |
+
+
+
+## 调试shell脚本 
+bash -x
+请参见陈皓老师的博文[如何调试bash脚本](http://coolshell.cn/articles/1379.html)。陈皓老师的文章清晰易懂，我学习调试bash脚本的方法都是从这篇文章获得的。
+

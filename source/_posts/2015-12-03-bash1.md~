@@ -1,0 +1,256 @@
+title: shell脚本总结篇(一）：我在shell脚本当中常用的命令
+date: 2015-12-03 23:56:53
+categories: bash
+tags: [bash, shell]
+---
+这三篇文章是我零散的20篇印象笔记的总结。
+
+## 首先罗列一下脚本当中常用的命令
+记录一下使用命令的惯用方法，每个示例都很短小，不能作为命令的入门教程。
+
+###　echo用法：
+echo在脚本当中是与用户做交互的，我一般常使用的echo用法是用于打印出颜色：
+   
+```
+echo -ne "\033[31m"    以后的echo都打印出红色
+echo -ne "\033[0m"       取消颜色
+echo -ne "\033[32m"      以后的echo都打印出绿色
+```
+`31m`代表的是红色，`32m`代表绿色，`33m`就是黄色，依次类推。
+在终端使用命令来查看下效果：
+![echo 颜色](http://ww1.sinaimg.cn/large/9d13bd87gw1eyj0zjpmcvj20ib02vt94.jpg)
+可以看到出现了红色的"hello"
+
+
+### find用法：
+find是用来在目录中查找文件的工具。
+
+find 的`-mount`选项：
+告诉find不要搜索挂载的其他文件系统的目录，这样搜索速度会更快
+使用`-or`增加搜索：
+```
+find / -mount -name "*.jar" -or -name "*.sql"
+find / -mount -name "hosts" -type d
+```
+`-type d` 希望找到目录, d 是directory的意思
+```
+find / -mount -newer consola.txt 查找比consola.txt更新的文件
+find / -mount ! -newer consola.txt  查找比consola.txt更老的文件
+```
+
+| 命令        | 描述   |
+| --------            | -----:  |
+| -amin -n        | 在最近的 n 分钟内被读取过 | 
+| -amin +n        |   在 n 分钟之前被读取过  | 
+| -atime -n       |   在最近的 n 天内读取过    | 
+| -atime +n       |   在 n 天前读取过的档案    | 
+| -cmin -n        |   在最近的 n 分钟内被变更过    | 
+| -cmin +n       |   在 n 分钟前被变更过   | 
+| -ctime -n      |   在最近的 n 天内变更过    | 
+| -ctime +n       |   在 n 天前变更过    | 
+| -mmin -n        |   在最近的 n 分钟内被修改过    | 
+| -mmin +n       |   在 n 分钟前被修改过   | 
+| -mtime -n      |   在最近的 n 天内修改过    | 
+| -mtime +n       |   在 n 天前修改过    | 
+
+注意`-ctime`和`-mtime`的区别：
+`-ctime`指的是文件本身最后被变更的时间，变更动作可以使chmod、chgrp、mv等等
+`-mtime`指的是文件内容最后被修改的时间，修改动作可以使echo重定向、vi等等
+
+如果日志在服务器上只帮用户保留7天，7天到期就删除日志：
+```
+#!/bin/bash
+#日志的目录在/root/log-xxxx/ 目录下
+dir="/root/log-*/"
+
+#在dir目录下查找七天之前修改的日志，并删除
+for file in `find $dir -maxdepth 1 -name "*.log" -mtime +7`;do 
+    echo $file
+    rm $file
+done
+
+#这里只是为了在删除之前打印出来看一下，如果不想查看的话其实还可以这样用;
+#find $dir -maxdepth 1 -name "*.log" -mtime +7 -exec rm {} \;
+```
+
+`-exec`：将找到的文件作为shell的参数，直到被`\;`终止，实际上终止并不是\号，而是分号，但是分号需要转义。因为`-exec`执行的是一个嵌入式命令，所以嵌入式命令必须要以一个转义的分号结束。
+魔术字符串`{}`代表的就是find查找出来的文件。
+
+列举比consola.txt更新的文件：
+```
+find . -newer consola.txt -exec ls -l {} \;
+```
+`-ok`与`-exec`唯一的区别就在于-ok会提示用户进行确认，一般只用`-exec`
+
+相似的工具还有`locate`，`whereis`，`which`：
+
+`locate`是`find -name`的另外一种写法，但是更快，原因在于它不搜索具体目录，而是搜索一个数据库（`/var/lib/locatedb`），这个数据库中含有本地所有文件信息。Linux系统自动创建这个数据库，并且每天自动更新一次，所以使用locate命令查不到最新变动过的文件。为了避免这种情况，可以在使用`locate`之前，先使用`updatedb`命令，手动更新数据库。
+
+比如查找mingling.txt文件：
+```
+locate mingling.txt
+```
+
+`whereis` 命令只用于程序名的搜索，而且只搜索二进制文件（参数-b）、man说明文件（参数-m）和源代码文件（参数-s）。如果省略参数，则返回所有信息。
+```
+whereis gcc
+```
+
+`which`命令的作用是，在`PATH`变量指定的路径中，搜索某个系统命令的位置，并且返回第一个搜索结果。也就是说，使用`which`命令，就可以看到某个系统命令是否存在，以及执行的到底是哪一个位置的命令。
+
+那么就是which < whereis < locate < find
+
+### grep用法：
+find用来查找文件，grep用来查找文件当中的字符串，使用
+```
+grep -Ir "hello" ./  
+```
+在当前目录下查找目录下中有”hello“内容的所有文件。
+ grep只能使用普通的正则表达式，而要使用扩展的正则表达式要用-E参数或者egrep，这两个没有任何分别。
+ 
+ 来看一个用法：
+将文件名中含有Spark,Hadoop,Hive,HBase这几个字符串的文件里面的top_organization_id换成organization_id:
+```
+ls|egrep "Spark|Hadoop|Hive|HBase"|xargs sed -i 's/top_organization_id/organization_id/g'
+```
+使用了egrep就能使用`|`这个扩展的正则表达式。
+
+除了-e之外，grep的`-r`（检索目录）和`-l`（小写的L只显示文件名）`-I`（大写的i，不检索二进制文件），`-v`（反向检索）这四个参数也经常使用。
+
+#### ack
+grep有一个特别的替代工具---`ack`。我们会经常遇见一种场景——查找工程下特定类型的文件中的匹配文本。当然，把 `find` 和 `grep` 组合起来也能达到目的，但用 `ack` 可以更方便的完成这个操作，节省不少时间。
+在`debian`和`ubuntu`系统中，
+```
+sudo apt-get -y install ack-grep
+```
+安装`ack-grep`，当然查找命令也是`ack-grep`而不是`ack`
+
+比如想要在`./DBPool`下的`cpp`文件中查找 `pool` 关键字：
+```
+find ./DBPool -type f -name "*.cpp" -exec grep --color=auto "pool" {} \;
+```
+或者直接使用ack:
+```
+ack --cc "pool" ./DBPool
+```
+其中`--cc`指定了查找的的类型, 相比之下ack的命令要简单很多，要查看ack支持的类型使用：
+```
+ack --help-types
+```
+我在自己的机器上经常使用`ack`来代替`grep`，但是我写脚本一般不用`ack`，因为考虑到移植性，在脚本移植的服务器上面还要安装`ack`确实挺麻烦，所以脚本当中一般是用`find`和`grep`。
+
+### sed用法：
+
+sed和awk必须要配合正则表达式才能威力无穷。
+先来看一个展现sed威力的地方：
+有一个`db.xml`文件：
+```
+<DBConnections>
+  <DBConn name="DBConnection1" mode="Master">
+    <type>REDIS</type>
+    <ip>127.0.0.1</ip>
+    <port>9379</port>
+    <username></username>
+    <password></password>
+  </DBConn>
+</DBConnections>
+```
+使用如下命令来获取`db.xml`当中的ip和端口号：
+```
+cat db.xml | tr -s '\r\n' ' ' | sed 's/^.*REDIS<\/type>\s*<ip>\(\w*\.\w*\.\w*\.\w*\)<\/ip>\s<port>\(\w*\)<\/port>.*$/\1:\2/g'
+```
+可以查看执行结果：
+![sed威力](http://ww2.sinaimg.cn/large/9d13bd87gw1eyj2y3x22kj21030233zf.jpg)
+如图所示：结果为127.0.0.1:9379
+正则表达式使用（）圆括号来捕获，\1，\2存放被捕获的变量，
+在[《精通正则表达式》](http://book.douban.com/subject/2154713/)这本书当中，提出了非捕获型括号：(?:)
+这边的用了一个开括号，一个问号，一个冒号表示。
+这种非捕获型括号，仅仅匹配但是并不保存变量。
+可惜的是，这种非捕获型的括号，sed和awk并不支持。
+还有一个我觉得很好用的，但是sed和awk也不支持的正则表达式是`\S`，用来匹配所有非空白字符，注意是大写的S
+比如在一封邮件当中有:
+```
+From:  hello@gmail.com  hello@163.com
+```
+用正则表达式匹配的话，那么正则表达式应该这样来写：
+```
+^From:\ (\S+)\ (\S+)$
+```
+使用`(\S+)`就能匹配两边都是空格的情况，可惜sed和awk也不支持。
+
+grep、sed、awk、perl等对正则表达式的支持的差别：[http://my.oschina.net/onionsheep/blog/346926?fromerr=7TNEmIxM](http://my.oschina.net/onionsheep/blog/346926?fromerr=7TNEmIxM)
+
+再举一个利用捕获型括号的用法：
+去除连续重复行：
+```
+cat hello.txt | sed 's/^\(.*\)\(\1\)/\1/g'
+```
+以上的命令执行将无效，因为sed是行处理，一次处理一行数据，所以正确的命令应该是这样：
+```
+cat hello.txt | tr "\n" " " | sed 's/^\(.*\)\(\1\)//g'
+```
+利用`tr "\n" " "`去掉换行符，把文本变成一行，才能用sed来处理。
+在[《linux命令行与shell脚本编程大全》](http://book.douban.com/subject/11589828/)这本书中说到了sed的高级用法，能处理多行。
+
+有关sed更多更详细的用法，请参照陈皓老师的博客：[sed简明教程](http://coolshell.cn/articles/9104.html)
+
+### awk用法：
+在安装程序的脚本当中经常遇见获取最新版本的shell函数，其实使用awk的话，一条命令就够了。
+
+展示出所有的mongodb版本：
+```
+curl -s http://pecl.php.net/package/mongo | awk -F'>' '/mongo-.+.tgz/{print $3}' | cut -d'<' -f1
+```
+`curl`命令返回的将是`html`格式的字符串，使用`awk`过滤掉不必要的信息。
+在awk使用花括号的时候仅仅只能够被单引号包含，不能够使用双引号。
+
+再在上面的命令中加上`sort`和`tail`直接获取最新版本：
+```
+curl -s http://pecl.php.net/package/mongo | awk -F'>' '/mongo-.+.tgz/{print $3}' | cut -d'<' -f1 | sort -V | tail -1
+```
+看看结果吧：
+![awk结果](http://ww3.sinaimg.cn/large/9d13bd87gw1eyj3qsmbjjj20yb01aq3g.jpg)
+
+先匹配后输出：
+
+当找到有ChangeLog的那一行的时候，输出`$2`
+
+```
+awk '/Changelog/{print $2}' hello.txt
+```
+
+去除掉后缀：
+
+```
+ls gtest_client.cpp | awk -F ".cpp" '{print $1}'
+```
+我经常在脚本当中使用这个来批量转换文件后缀
+
+使用`awk`的函数`substr`函数来获取本机ip:
+```
+ifconfig | grep "192." | awk '{print substr($2,6)}'
+```
+
+在`awk`当中使用`if`语句：
+```
+awk '{if(NR == 2) {print $1;exit}}' hello.txt
+```
+
+将字符串变为大写：
+```
+ echo $1 | awk '{print toupper($0)}'
+```
+或者变为小写：
+```
+ echo $1 | awk '{print tolower($0)}'
+```
+这个命令我用在了我的代码生成器当中。
+
+### xargs用法：
+xargs配合管道使用才能显得威力无穷
+
+将内容当中含有"HADOOP_SPARK"的文件检索出里面是否含有"top_organization"，
+使用`grep -l` 只显示文件名
+```
+ls | xargs grep -l "HADOOP_SPARK" | uniq | xargs grep "top_organization" --color=auto
+```

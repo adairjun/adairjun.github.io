@@ -319,11 +319,3 @@ index:
 |   theme     |当前主题名称  | 
 |  deploy     |部署 |
 
-
-## 关于在博客当中插入图片的推荐方法
-因为markdown语法的博客可以在博客当中插入本地图片和在线图片。对于我个人来说，我只使用在线图片。
-在这里推荐一个chrome的插件：[围脖是个好图床](https://chrome.google.com/webstore/detail/%E5%9B%B4%E8%84%96%E6%98%AF%E4%B8%AA%E5%A5%BD%E5%9B%BE%E5%BA%8A/pngmcllbdfgmhdgnnpfaciaolgbjplhe?hl=en-US),我都是用这个插件来把本地照片上传，然后在博客当中使用在线图片的。
-
-注意一点，使用这个插件之前需要自己先登陆网页版微博，否则图片是上传不上去的。这里吐槽一下开发者，这种情况应该抛出一个警告，让用户知道自己微博没有登陆。
-
-

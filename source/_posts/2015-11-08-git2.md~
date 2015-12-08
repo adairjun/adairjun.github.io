@@ -1,7 +1,6 @@
 title: git使用总结(二)
 date: 2015-11-08 22:35:59
-categories: git
-tags: git
+tags:
 ---
 ## diff操作
 ### 在没有使用`git add`的时候，也就是文件还在工作目录当中的时候，查看修改了那些代码：
