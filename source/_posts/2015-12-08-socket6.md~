@@ -4,4 +4,68 @@ categories: SocketPoll
 tags: [socket, SocketPoll]
 ---
 
+## 首先从`unp_client`当中把`connect`的socket打印出来看看
+
+我的`epoll`的代码都放在了`str_cli()`函数当中，这里不需要提到那个函数。
+```
+int main(int argc, char** argv) {
+  // 使用glog来打日志,除错
+  google::InitGoogleLogging(argv[0]);
+  FLAGS_log_dir = "../log";  
+  SocketObj sock(HOST, PORT);
+  if (sock.Connect() == false) {
+    cerr << "Connect error" << endl;
+  }
+cout << "------------" << sock.Get() << endl;
+  str_cli(sock.Get());
+  sock.Close();
+  return 0;
+}
+
+```
+看到在`Connect()`之后使用
+```
+cout << "------------" << sock.Get() << endl;
+```
+来打印socket。
+
+将`unp_client`和`unp_server`编译之后启动。
+可以看到在我的机器上打印出来的是
+```
+------------4
+```
+
+把`unp_client`使用ctrl+c终止之后又重启，连续几次都是4。
+看来创建socket的`socket()`函数是有规律的。
+那么我来个大胆点的，直接把`str_cli();`的参数换成4
+```
+int main(int argc, char** argv) {
+  // 使用glog来打日志,除错
+  google::InitGoogleLogging(argv[0]);
+  FLAGS_log_dir = "../log";  
+  SocketObj sock(HOST, PORT);
+  if (sock.Connect() == false) {
+    cerr << "Connect error" << endl;
+  }
+cout << "------------" << sock.Get() << endl;
+  str_cli(4);
+  sock.Close();
+  return 0;
+}
+
+```
+
+编译之后可以看到还是打印出了
+```
+------------4
+```
+而且客户端完全成功。
+
+那么提问：既然`socket()`函数有规律，那么服务器端的`accept()`函数是不是也有规律呢？
+有兴趣的同学可以去试试，我在这里直接给出结果了：是的。
+
+## 小结
+其实这个不能称之为有意思，只不过是linux操作系统的机制而已，说到底socket只不过是文件描述符，而linux的操作文件（比如普通的文件IO）都是通过文件描述符来做的。而文件描述符就是一个int型的数。
+`connect`和`accept`只不过向操作系统报告，用这个int型的数来启动tcp连接罢了。知道了这一点，自然就破解了其中的奥秘。
+而关于为什么每次使用`accept`都是同一个整数的原因是这样的:`linux`的文件描述符是小整数，在程序刚刚启动的时候，0是标准输入，1是标准输出，2是标准错误。这个时候如果我们新打开一个文件，它的文件描述符就会是3。因为`POSIX`标准要求每次新打开的文件（当然也包括`socket`）的时候必须使用当期最小可用的文件描述符号码。
 

@@ -1,4 +1,4 @@
-title: shell脚本总结篇(三）：附上我常用的shell脚本
+title: shell脚本总结篇(三)：附上我常用的shell脚本
 date: 2015-12-03 23:59:11
 categories: bash
 tags: [bash, shell]
@@ -199,6 +199,32 @@ REDIS_SERVER_PORT=`cat ${GLOBALCONF} | tr -s '\r\n' ' ' | sed 's/^.*REDIS<\/type
 ```
 
 ### 生成安全秘钥用于验证登陆：
+
+在写这个脚本之前先介绍一下`openssl`命令，我就是用这个命令进行加密和解密的，算法使用的是`aes`
+
+
+对字符串‘abc’进行`aes`加密，使用密钥123，输出结果以base64编码格式给出：
+```
+echo abc | openssl aes-128-cbc -k 123 -base64
+```
+
+生成的密码为:
+```
+U2FsdGVkX198JFSRzZGVS+pY+egLZO+vbHQeMDJ/Qv4=	
+```
+
+可以对密码进行解密来查看生成密码的正确性：
+```
+echo U2FsdGVkX198JFSRzZGVS+pY+egLZO+vbHQeMDJ/Qv4= | openssl aes-128-cbc -d -k 123 -base64
+
+```
+可以看到输出为
+```
+abc
+```
+
+> 这里要说一下我遇到的有关-A参数的问题。openssl基于enc（symmetric cipher routines）的加密解密时command里要添加-A 选项。这个选项的作用是对于一串字符加密或解密时，所有内容在一行内输出。在需要加密的字符串长度超过40时（今在我的电脑上测试的数据，fedora 20），如果没有加入-A选项，解密时会出现”error reading input file” 以及 “bad magic number” 这两种错误提示。
+
 
 ```
 #!/bin/bash

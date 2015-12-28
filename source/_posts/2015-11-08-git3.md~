@@ -1,6 +1,7 @@
 title: git使用总结(三)
 date: 2015-11-08 22:49:44
-tags:
+categories: git
+tags: git
 ---
 ## 把代码推送到远程仓库
 ### 简单的push
@@ -175,3 +176,7 @@ git config --global https.proxy 127.0.0.1:8123
 ```
 
 借鉴了[Convert Shadowsocks into an HTTP proxy](https://github.com/shadowsocks/shadowsocks/wiki/Convert-Shadowsocks-into-an-HTTP-proxy)这篇文章
+
+## 推荐阅读
+- [鱼思故渊的libevent源码分析](http://blog.csdn.net/yusiguyuan/article/category/2171081)
+

@@ -1,0 +1,348 @@
+title: 使用C++的classFactory来模拟JAVA的反射机制
+date: 2015-12-23 19:28:40
+categories: 设计模式
+tags: [反射, classFactory]
+---
+
+与同事聊天的时候，他和我谈到了`JAVA`的反射机制，并说`C++`的很多地方比不上`JAVA`,反射机制就是其中之一。聊着聊着，我们就谈到`C++`能否模拟一个反射机制，不求做到完美，只要能模拟出一个小功能就可以了。
+
+## JAVA的反射
+
+首先先介绍一下JAVA的反射机制，JAVA的反射说白了就是根据类名这个字符串来初始化一个对象，还有就是根据对象能获取得到类的方法。
+
+### 根据类名字符串初始化一个对象：
+```
+package example;
+class test {
+  ....
+}
+
+class test2 {
+    public static void main(String[] args) {
+        Class<?> demo=null;
+        //这里只是做个示范，把className写死了
+        //但是真正在工程环境当中可以从xml配置文件当中读出来
+        //从而实现程序在运行期间动态修改，只要修改xml配置文件，demo可以是任何类的对象。
+        String className = "example.test";
+        demo=Class.forName(className);
+        //TODO something
+    }
+}
+
+```
+这个看起来就是做了一个高级别的抽象，因为接下来`demo`对象要做的`something`是与`demo`这个对象的类是无关的。这个用在`protobuf`的反序列化当中那就威力无穷了。
+> 想象一下这样的场景：客户端发送了一条经过`protobuf`序列化之后的消息给服务器。这个消息是经过包装的，有个消息头和消息内容，消息头包括了`protobuf`序列化使用的类名，序列化之后的长度等等。消息内容就是序列化的数据。然后服务器端的`JAVA`代码接受到消息之后，先读消息头，取出`protobuf`序列化使用的类名，根据这个类名构造一个对象，用来将接收到的消息内容反序列化。
+
+### 根据对象获取类名字符串
+```
+package example;
+class test {
+    ....
+}
+ 
+class test2 {
+    public static void main(String[] args) {
+        test demo=new test();
+        //对于一个对象可以马上知道它所属的类型
+        System.out.println(demo.getClass().getName());
+    }
+}
+```
+当然，`JAVA`的反射机制远远不止如此，还可以通过`newInstance()`来实例化其他对象，通过`getConstructors()`调用其他类的构造函数，通过`getInterfaces()`返回一个类实现的接口，`getSuperclass()`能取到父类。反射有非常多的API可以拿过来用。我的同事告诉我，他用的最多的就是根据类名来初始化对象，进而写更高层次的抽象代码。我对`JAVA`并不是很熟，我的主流语言是`C++`，但是`C++`并没有反射功能，google上搜索到了可以通过工厂模式来模拟`JAVA`的反射功能，仅仅是模拟根据字符串来初始化对象，于是我自己就实现了一遍。
+
+## 想法
+
+最初我的想法是这样的：使用[《代码大全》](http://book.douban.com/subject/1477390/)的表驱动法，在程序启动的时候，把所有的对象初始化一份实例，然后在表中放入类名的字符串和这份实例的指针的映射。当需要用到反射的地方，根据提供的类名字符串查表，将实例的指针取出来。这种方法当然是不可能的，首先把所有的对象都初始化一份实例会严重拖慢程序的速度，其次，创建那么多实例，并不是全部用到，造成大量的浪费。
+所以好方法就是等到需要这个实例的时候再创建，那么办法就是在表中不存实例的指针，而是保存构造函数，等到传递类名字符串的时候，取出相应的构造函数，构造出一个对象，并返回其指针。
+
+但是难点就在`C++`如何在`map`当中保存构造函数。要用`C++`来做这件事情的话，应该是这个样子：
+```
+//伪代码：
+map: {
+  "FirstClass" :　FirstClass(bool),
+  "SecondClass" :　SecondClass(int),
+  "ThirdClass" :　ThirdClass(double),
+  "FourthClass" :　FourthClass(string),
+  "FifthClass" :　FifthClass(const char*),
+   ..........
+}
+```
+保存函数指针肯定是不行的，原因：构造函数的每个参数都不同，而`map`如果保存函数指针的话，需要类型一致，而且就算都传无参的构造函数，由于构造函数根本没有返回类型，不可能做出函数指针指向它。
+
+那能不能不传构造函数的指针，而是在每一个类当中定义一个`Instance()`函数，函数中实例化这个类的一个对象并返回。那在表当中就保存Instance()函数的指针？ 
+也不行，原因是`Instance()`函数是`member function`,要想调用一般的`member function`，除非这个`member function`是`static`类型的，否则就必须要用一个对象去调用。
+
+那能不能在改一步，使用[《Effective C++》](http://book.douban.com/subject/1842426/)当中`条款4`的`singleton`模式，写成这种形式:
+```
+static MyClass& MyClass::Instance() {
+  static MyClass myInstance;
+  return myInstance;
+}
+```
+这样总行了吧？现在使用`Instance()`函数这样用就可以了,根本就不需要先存在对象了
+```
+MyClass::Instance();
+```
+而且为了匹配函数指针，可以这样写:
+```
+//定义一个函数指针, 无参数，返回值为void*
+typedef void* (*myInstance)();
+......
+
+static void* MyClass::Instance() {
+  static MyClass myInstance;
+  return (void*)&myInstance;
+}
+
+static void* YourClass::Instance() {
+  static YourClass yourInstance;
+  return (void*)&yourInstance;
+}
+//这样MyClass::Instance()和YourClass::Instance()就能匹配myInstance这个函数指针了
+```
+这个策略按照常理是可以的。但是确定要这么做吗？这样做就意味着为了模拟一下`JAVA`的反射机制，在每个类的定义中都需要加上这个`singleton`代码，如果类很多的话，这个工作量是很大的，虽然可以写一个批量插入的程序减少工作量，但是这样从程序设计的角度真的好吗？为了模拟一个功能而修改所有的代码？我不知道什么场景下值得这么做，但是至少我是不会这么做的。
+
+我的最后方法是，不用上面的`singleton`的`member function`，而是写一个`non-member function`：
+```
+static void* CreateClass##class_name (){	    \
+		return (void*)(new class_name());			\
+	};						
+```
+首先要提到的是这是一个在宏当中的函数，把这个函数写到宏当中有2个目的：
+- 减少代码量。
+- 传递的宏参数是class_name，这个参数不需要加引号变成字符串形式。这个很重要，这意味着我可以这样用而保证合法：`IMPL_CLASS_CREATE(MyClass)`，其中`MyClass`不需要加上引号，从而能直接实现`new MyClass()`。如果不是宏当中的函数，或者直接说是在编译期间而不是预处理期间的话，传递不加引号的`MyClass`绝对非法，如果传递了带引号的`MyClass`，就说明传了一个字符串，那试问如何实现`new MyClass()`?
+
+接下来请看我的`C++`实现，后面会附带讲解。
+
+## C++实现
+
+代码比较短，我就直接贴上来了：
+`class_factory.h`
+```
+#ifndef MQPOOL_INCLUDE_CLASS_FACTORY_H_
+#define MQPOOL_INCLUDE_CLASS_FACTORY_H_
+
+#include "object.h"
+#include <string>
+#include <map>
+
+using std::string;
+using std::map;
+using std::make_pair;
+
+
+typedef void* (*ObjectCreate_t)();
+
+/*
+ * 使用factory模式来模拟JAVA的反射机制
+ */
+class ClassFactory : public Object {
+ public:
+  ClassFactory();
+  ClassFactory(const ClassFactory&) = delete;
+  ClassFactory& operator=(const ClassFactory&) = delete;
+  virtual ~ClassFactory();
+  void Dump() const;
+
+ public:
+
+  
+  bool AddObject(const string& className, ObjectCreate_t pCreate);
+  bool AddObject(const char* className, ObjectCreate_t pCreate);
+  void* GetObject(const string& className);
+  void* GetObject(const char* className);
+
+  map<string, ObjectCreate_t> GetMap() const;
+
+ private:
+  map<string, ObjectCreate_t> factoryMap_;
+};
+
+/*
+ * 把这个singleton设置为inline模式也是遵守《Effective C++》的条款4
+ */
+inline ClassFactory& ClassFactoryInstance() {
+  static ClassFactory sInstance;
+  return sInstance;
+}
+
+#define DECLARE_CLASS_CREATE(class_name)	    	\
+	static void* CreateClass##class_name ();
+
+#define IMPL_CLASS_CREATE(class_name)	            \
+	static void* CreateClass##class_name (){	    \
+		return (void*)(new class_name());			\
+	};											    \
+	static bool _##class_name##_Unused __attribute__((unused))= ClassFactoryInstance().AddObject(#class_name, CreateClass##class_name);
+
+//#的作用是在class_name的左右两边都加上双引号，##的作用是连接两个字符串
+
+#endif /* MQPOOL_INCLUDE_CLASSS_FACTORY_H_ */
+```
+
+`class_factory.cpp`
+```
+#include "MQPool/class_factory.h"
+
+ClassFactory::ClassFactory() {
+}
+
+ClassFactory::~ClassFactory() {
+}
+
+void ClassFactory::Dump() const {
+  printf("\n=====ClassFactory Dump START ========== \n");
+  int count = 0;
+  for (auto it = factoryMap_.begin(); it!=factoryMap_.end(); ++it) {
+    printf("count==%d ", count);
+    printf("className=%s ", it->first.c_str());
+    printf("CreateObject_t=%p ", it->second);
+    printf("\n");
+    ++count;
+  }
+  printf("\n===ClassFactory DUMP END ============\n");
+}
+
+bool ClassFactory::AddObject(const string& className, ObjectCreate_t pCreate) {
+  factoryMap_.insert(make_pair(className, pCreate));
+  return true;
+}
+
+bool ClassFactory::AddObject(const char* className, ObjectCreate_t pCreate) {
+  string class_name(className);
+  factoryMap_.insert(make_pair(class_name, pCreate));
+  return true;
+}
+
+void* ClassFactory::GetObject(const string& className) {
+  if (factoryMap_.count(className) == 1) {
+    //这里就调用CreateObject_t()
+    return factoryMap_[className]();
+  } else {
+	return NULL;
+  }
+}
+
+void* ClassFactory::GetObject(const char* className) {
+  string class_name(className);
+  return GetObject(class_name);
+}
+
+/*
+ * 我在考虑这里要不要使用std::move(factoryMap_)
+ */
+map<string, ObjectCreate_t> ClassFactory::GetMap() const {
+  return factoryMap_;
+}
+
+```
+
+## 有关继承自Object
+`Object`就是一个抽象类，设计它的原因是这样的，我开始在代码当中写的并不是
+```
+typedef void* (*ObjectCreate_t)();
+```
+而是
+```
+typedef Object* (*ObjectCreate_t)();
+```
+因为我最初的想法是想利用`C++`的多态性质来模拟反射，当时的想法是为了能将函数指针统一起来放入`factoryMap_`当中，第一想法就是使用基类的指针，根本没想到`void*`，使用`Object*`的话就导致实例化出来的对象只能调用`virtual`函数。在最开始的时候写代码写的还很顺畅，到了后来我才碰壁了，才改成了`void*`。
+
+## 有关 `inline ClassFactory\& ClassFactoryInstance()`
+关于这个函数的设计有必要展开讨论。首先，既然设计出了这个`factory`，需要用到它的场景就是这样子：整个代码当中只有一份`factory`，功能就是生产对象。所以任何时候我将`ObjectCreate_t`这个函数指针放入`factory`当中的时候，这个`factory`一定是唯一的。
+如果比较难理解的话可以这样想：如果代码中存在两份`factory`，那么我要将`ObjectCreate_t`这个函数指针放入`factory`当中的时候，应该放入哪一个？所以只有一份`factory`就能避免这个问题。
+
+如何在整份代码中只设置一份`factory`？全局变量一定是不行的。首先就是变量名的冲突，然后也不能保证其他人要用我的代码的时候会不会设置两个全局变量的`factory`。要替代全局变量的办法就是使用`singleton`模式，使用`ClassFactory::Instance()`的方法来调用绝对不会有变量名的冲突，而且也不可能有两个`factory`。
+
+既然决定了要使用`singleton`的方式来实现，接下来有必要讨论一下用[《Effective C++》](http://book.douban.com/subject/1842426/)当中`条款4`和`条款21`。
+
+条款21说的是：必须返回对象时，别妄想返回其reference
+
+而我的`singleton`设计是这样子的，而且条款4当中Meyers自己也写了这么一个`singleton`。
+```
+ClassFactory& Instance() {
+	static ClassFactory sInstance;
+	return sInstance;
+}
+```
+是不是Meyers搞错了？别急，接着往下看，在条款21当中说到了：
+> 请记住：绝对不要返回pointer或reference指向一个local stack对象，或返回reference指向一个heap-allocated对象，或返回pointer或reference指向一个local static对象而有可能同时需要多个这样的对象。条款4已经为"在单线程环境中合理返回reference指向一个local static对象"提供了一份设计实例。
+
+恍然大悟！当在单线程环境当中，如果不需要多个这样的对象，那么返回pointer或reference指向一个local static对象是可以这么做的。`singleton`就是单例的设计模式，所以只要保证单线程就可以了。
+
+### 那如何在C++的多线程当中保证`singleton`的安全性？
+人家Meyers都说了不要在多线程中使用`singleton`，那就不要用了。但是如果不听他的劝告，非要用的话，用[《Effective C++》](http://book.douban.com/subject/1842426/)当中`条款4`也告诉了方法：
+
+> 任何一种non-const static对象，不论它是local还是non-local，在多线程环境当中"等待某事发生"都会有麻烦,处理这个麻烦的一般做法是：在程序的单线程启动阶段(single-thread startup portion)手工调用所有的reference-returning函数，这可以消除与初始化有关的"竞速形势(race conditions)"
+
+Meyers还是建议我们在多线程的单线程启动阶段去用。意思就是说，程序在刚刚运行，多线程还没启动的时候，用这个`singleton`是没问题的。
+
+## 有关RemoveObject
+我没有在`ClassFactory`当中定义删除的操作，主要就是为了安全。因为我觉得对于这个工厂来说，删除掉函数指针根本没有任何实际意义,胡乱把这个接口提供出去反而会造成危险。
+
+
+## 为什么要把`AddObject`设置为`bool`值？
+
+要回答这个问题，请看这个宏：
+```
+#define IMPL_CLASS_CREATE(class_name)	            \
+	static void* CreateClass##class_name (){	    \
+		return (void*)(new class_name());			\
+	};											    \
+	static bool _##class_name##_Unused __attribute__((unused))= ClassFactory::Instance().AddObject(#class_name, CreateClass##class_name);
+
+//#的作用是在class_name的左右两边都加上双引号，##的作用是连接两个字符串
+```
+
+那么，当我执行这段代码的时候：
+```
+IMPL_CLASS_CREATE(ParseJsonObj);
+```
+
+实际上执行的是这段代码：
+```
+static void* CreateClassParseJsonObj (){	    \
+		return (void*)(new ParseJsonObj());			\
+	};											    \
+	static bool _ParseJsonObj_Unused __attribute__((unused))= ClassFactory::Instance().AddObject("ParseJsonObj", CreateClassParseJsonObj);
+```
+
+这个`__attribute__((unused))` 是编译器的内置宏，告诉编译器如果没有用到` _ParseJsonObj_bUnused`这个参数的时候，不要抛出
+```
+WARNING: warning "unused parameter xxx”
+```
+这个警告。
+
+那么真正的实现就是这个样子：
+```
+static void* CreateClassParseJsonObj (){	    \
+		return (void*)(new ParseJsonObj());			\
+};											    \
+static bool _ParseJsonObj_Unused = ClassFactory::Instance().AddObject("ParseJsonObj", CreateClassParseJsonObj);
+```
+请看`_ParseJsonObj_Unused`这个参数，到不是说这个参数有多重要，你看我给它起的名字是unused就知道以后用不上这个参数了，但是如果`AddObj`的返回值为`void`，那么这里就应该是:
+
+```
+ClassFactory::Instance().AddObject("ParseJsonObj", CreateClassParseJsonObj);
+```
+这行代码是不合法的。因为`C++`不允许在全局的作用域内调用函数。在`main`函数之外调用这个宏`IMPL_CLASS_CREATE(ParseJsonObj)`就是在全局作用域当中。
+
+为了让这行代码合法应该怎么做呢？
+请看：
+```
+static bool _ParseJsonObj_Unused = ClassFactory::Instance().AddObject("ParseJsonObj", CreateClassParseJsonObj);
+```
+这行代码就是初始化一个静态全局变量了，C++就判断合法。把这个`_ParseJsonObj_Unused`设置为`static`的目的只是为了不让其他文件访问，利用了`static`变量只能在本文件中访问的特性。因为它根本没有用，就怕其他文件乱改。
+
+为什么不能在`main`函数当中使用这个宏`IMPL_CLASS_CREATE(ParseJsonObj)`？这样的话`ClassFactory::Instance().AddObject("ParseJsonObj", CreateClassParseJsonObj);`不就合法了吗？
+不错，这样子`ClassFactory::Instance().AddObject("ParseJsonObj", CreateClassParseJsonObj);`是合法了，但是
+```
+static void* CreateClassParseJsonObj (){	    \
+		return (void*)(new ParseJsonObj());			\
+};	
+```
+却又不合法了。因为C++不允许在函数当中又定义函数。
+
+所以为了能让宏合法，这里的`AddObject`必须要有返回值，返回`bool`值的原因是`bool`只占一个字节，而`int`要占四个字节。
+
+测试代码请参见:[https://github.com/adairjun/MQPool/blob/master/gtest/test_class_factory.cpp](https://github.com/adairjun/MQPool/blob/master/gtest/test_class_factory.cpp)

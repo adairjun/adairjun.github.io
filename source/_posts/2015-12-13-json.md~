@@ -1,0 +1,552 @@
+title: 使用boost::property_tree解析xml与json (三):parse_json设计
+date: 2015-12-13 01:02:13
+categories: property_tree
+tags: [boost, property_tree, json]
+---
+
+
+解析`json`由于没有`attribute`，相比解析`xml`少了很多繁文缛节。把这篇博客和我上一篇博客《使用boost::property_tree解析xml与json (二):parse_xml设计》对比起来看理解起来会很容易。
+
+## 想法
+解析`json`，我觉得有以下几种情况：
+
+### 根据`json`的`key`直接获取`value`
+
+接口是这样子的：
+```
+ string GetChildData(const string& path);
+```
+
+比如说这样的一个`json`：
+```
+ { 
+   "root":
+   { 
+     "child":
+     { 
+       "a": "1",
+       "b": "2" 
+      }
+   }
+ }
+```
+使用：
+```
+pt.GetChildData("root.child.a")
+```
+就能获取到`a`的值。
+
+### 获取一个`json`下所有的`key-value`
+在上面的例子当中，就是获取`root.child`下面的`a`和`b`。
+
+接口为：
+```
+map<string, string> GetChildDataMap(const string& path);
+```
+由于`json`的格式都是`key-value`型，使用`map`简直是最适合不过了。唯一需要注意的就是同一个元素当中不能有相同的`key`，否则写到`map `当中会覆盖掉原来的值，这种情况我觉的大可不必担心，因为在写`json`配置文件的时候自然会考虑到不能写重复的`key`值，所以我在这里用的是`map`而不是`mutilmap`。
+
+```
+pt.GetChildData("root.child") 
+```
+
+### 获取`json`的数组
+接口格式是这样：
+```
+vector<map<string, string> > GetChildDataArray(const string& path);
+```
+如果想要获取`child`这个数组的话：
+```
+{ 
+  "root":
+  { 
+    "child":
+    [
+      { 
+        "a": "1",
+        "b": "2" 
+      },
+      { 
+        "a": "1",
+        "b": "2" 
+      }
+    ]
+  }
+}
+```
+
+使用方法为
+```
+ pt.GetChildDataArray("root.child")
+```
+刚刚好`child`这个数组的每一个元素都没有名字，`vector`也不保存名字。而数组的每个元素当中的`key-value`刚刚好就是一个`pair`。
+
+## 插入数据的操作
+
+### 插入一个`key-value`
+
+使用
+```
+void PutChildData(const string& key, const string& value);
+```
+
+比如要在
+```
+ { 
+   "root":
+   { 
+     "child":
+     { 
+       "a": "1",
+       "b": "2" 
+      }
+   }
+ }
+```
+当中插入一行`key-value`,就可以用这个接口
+```
+pt.PutChildData("testput", "testput")
+```
+
+最后得到：
+```
+ { 
+   "root":
+   { 
+     "child":
+     { 
+       "a": "1",
+       "b": "2" 
+      }
+   }，
+   "testput": "testput"
+ }
+```
+这个接口当中封装的`property_tree`方法会自动添加逗号。
+
+
+### 插入一个`map`
+与上面的
+```
+map<string, string> GetChildDataMap(const string& path);
+```
+相对应的就是这个接口：
+```
+void PutChildDataMap(const string& key, const map<string, string>& key_value_map);
+```
+
+比如要在当中加入一个和`child`相同的`map`：
+```
+ { 
+   "root":
+   { 
+     "child":
+     { 
+       "a": "1",
+       "b": "2" 
+      }
+   }
+ }
+```
+
+使用方法：
+```
+myMap.insert(make_pair("a", "1"))；
+myMap.insert(make_pair("b", "2"))；
+PutChildData("root.newchild", myMap)；
+```
+
+运行结果为：
+```
+ { 
+   "root":
+   { 
+     "child":
+     { 
+       "a": "1",
+       "b": "2" 
+      },
+     "newchild":
+     { 
+       "a": "1",
+       "b": "2" 
+      }
+   }
+ }
+```
+
+### 插入一个数组
+
+同样的和上面的`get`接口相对应的`put`接口：
+```
+void PutChildDataArray(const string& key, const vector<map<string, string> >& array_list);
+```
+
+比如对这个`json`进行操作：
+```
+ { 
+   "root":
+   { 
+     "child":
+     [
+     { 
+       "a": "1",
+       "b": "2" 
+      },
+      { 
+       "a": "1",
+       "b": "2" 
+      }
+      ]
+   }
+ }
+```
+
+使用方法：
+```
+myMap.insert(make_pair("a", "1"));
+myMap.insert(make_pair("b", "2"));
+yourMap.insert(make_pair("a", "1"));
+yourMap.insert(make_pair("b", "2"));
+vector<map<string, string> > array;  
+array.push_back(myMap); 
+array.push_back(yourMap);
+PutChildData("root.nee", array);
+```
+
+运行结果为：
+```
+{ 
+   "root":
+   { 
+     "child":
+     [
+     { 
+       "a": "1",
+       "b": "2" 
+      },
+      { 
+       "a": "1",
+       "b": "2" 
+      }
+      ],
+     "nee":
+     [
+     { 
+       "a": "1",
+       "b": "2" 
+      },
+      { 
+       "a": "1",
+       "b": "2" 
+      }
+      ]
+   }
+ }
+```
+
+### 保存结果
+
+在对`json`进行写入之后，不要忘记调用接口
+```
+void SaveConfig();
+```
+来保存结果。
+这个和`xml`的操作是一样的。
+
+## 我的测试详情请访问[test_json.cpp](https://github.com/adairjun/MQPool/blob/master/gtest/test_json.cpp)
+
+## 贴上完整的源代码：
+
+## `parse_json.h`
+
+```
+#ifndef MQPOOL_INCLUDE_PARSE_JSON_H_
+#define MQPOOL_INCLUDE_PARSE_JSON_H_
+
+/* 以前一直都是把解析json文件的代码放在池的构造函数当中,这里把它独立出来
+ *  使用boost的json解析库,也推荐使用rapidjson,
+ * rapidjson是仿造rapidxml写出来的,不过没有用在boost库当中
+ */
+
+#include <string>
+#include <vector>
+#include <map>
+#include <boost/shared_ptr.hpp>
+#include <boost/property_tree/ptree.hpp>
+
+using std::string;
+using std::vector;
+using std::map;
+using std::make_pair;
+using boost::property_tree::ptree;
+
+typedef boost::shared_ptr<boost::property_tree::ptree> ptreePtr;
+
+class ParseJsonObj {
+ public:
+  explicit ParseJsonObj();
+  explicit ParseJsonObj(string configPath);
+  virtual ~ParseJsonObj();
+  ParseJsonObj(const ParseJsonObj&) = delete;
+  ParseJsonObj& operator=(const ParseJsonObj&) = delete;
+  void Dump() const;
+
+  string GetConfigPath() const;
+
+  ptreePtr GetPtree() const;
+
+  /*
+   * GetChildData("root.child.a") will get "a" 
+   * { "root":
+   *     { "child":
+   *        { "a": "1",
+   *          "b": "2" 
+   *        }
+   *     }
+   *  }
+   */
+  string GetChildData(const string& path);
+
+  /*
+   * GetChildData("root.child") will get "a" and "b"
+   * { "root":
+   *     { "child":
+   *        { "a": "1",
+   *          "b": "2" 
+   *        }
+   *     }
+   *  }
+   */
+  map<string, string> GetChildDataMap(const string& path);
+
+  /*
+   * GetChildDataArray("root.child") will get "a" and "b"
+   * { "root":
+   *     { "child":
+   *        [
+   *        { "a": "1",
+   *          "b": "2" 
+   *        },
+   *        { "a": "1",
+   *          "b": "2" 
+   *        }
+   *        ]
+   *     }
+   *  }
+   */
+  vector<map<string, string> > GetChildDataArray(const string& path);
+
+  //===========================================================
+  /*
+   * PutChildData("testput", "testput") will add "testput" in
+   * { "root":
+   *     { "child":
+   *        { "a": "1",
+   *          "b": "2" 
+   *        }
+   *     }
+   *  }
+   * new:
+   * { "root":
+   *     { "child":
+   *        { "a": "1",
+   *          "b": "2" 
+   *        }
+   *     },
+   *   "testput": "testput"
+   *  }
+   */
+  void PutChildData(const string& key, const string& value);
+
+  /*
+   * myMap.insert(make_pair("a", "1"))  myMap.insert(make_pair("b", "2"))
+   * PutChildData("root.newchild", myMap) will add "newchild" in
+   * { "root":
+   *     { "child":
+   *        { "a": "1",
+   *          "b": "2" 
+   *        }
+   *     }
+   *  }
+   * new:
+   * { "root":
+   *     { "child":
+   *        { "a": "1",
+   *          "b": "2" 
+   *        },
+   *        "newchild":
+   *        { "a": "1",
+   *          "b": "2"
+   *        }
+   *     }
+   *  }
+   */
+  void PutChildDataMap(const string& key, const map<string, string>& key_value_map);
+
+  /*
+   * myMap.insert(make_pair("a", "1"))  myMap.insert(make_pair("b", "2"))
+   * yourMap.insert(make_pair("a", "1"))  yourMap.insert(make_pair("b", "2"))
+   * vector<map<string, string> > array;  array.push_back(myMap); array.push_back(yourMap);
+   * PutChildData("root.nee", array) will add "nee" in
+   * { "root":
+   *     { "child":
+   *        [
+   *        { "a": "1",
+   *          "b": "2" 
+   *        },
+   *        { "a": "1",
+   *          "b": "2" 
+   *        }
+   *        ]
+   *     }
+   * }
+   * new:
+   * { "root":
+   *     { "child":
+   *        [
+   *        { "a": "1",
+   *          "b": "2" 
+   *        },
+   *        { "a": "1",
+   *          "b": "2" 
+   *        }
+   *        ],
+   *        "nee": 
+   *        [
+   *        { "a": "1",
+   *          "b": "2"
+   *        },
+   *        { "a": "1",
+   *          "b": "2"
+   *        }
+   *        ]
+   *     }
+   * }
+   */
+  void PutChildDataArray(const string& key, const vector<map<string, string> >& array_list); 
+
+  /*
+   * save config
+   */
+  void SaveConfig();
+
+ private:
+  string configPath_; 
+  //这里不用ptree对象而用指针的意义在于如果使用ptree对象的话，构造的时候就必须完全构造这个对象
+  ptreePtr pt_;
+  //ptree* pt_;
+};
+
+typedef boost::shared_ptr<ParseJsonObj> ParseJsonObjPtr;
+#endif /* MQPOOL_INCLUDE_PARSE_JSON_H */
+```
+
+## `parse_json.cpp`
+
+```
+#include "MQPool/parse_json.h"
+#include <boost/property_tree/json_parser.hpp>
+
+
+ParseJsonObj::ParseJsonObj() 
+    : pt_(new ptree) {
+    configPath_ = "../config/messageQueue.json";
+    //pt_ = new ptree;
+    boost::property_tree::read_json(configPath_, *pt_);
+}
+
+ParseJsonObj::ParseJsonObj(string configPath)
+    : configPath_(configPath), pt_(new ptree) {
+	//pt_ = new ptree;
+	boost::property_tree::read_json(configPath_, *pt_);
+}
+
+ParseJsonObj::~ParseJsonObj() {
+  //delete pt_;
+}
+
+void ParseJsonObj::Dump() const {
+  printf("\n=====ParseJsonObj Dump START ========== \n");
+  printf("configPath__=%s ", configPath_.c_str());
+  //printf("pt_=%p ", pt_);
+  printf("\n===ParseJsonObj DUMP END ============\n");
+}
+
+string ParseJsonObj::GetConfigPath() const {
+  return configPath_;
+}
+
+ptreePtr ParseJsonObj::GetPtree() const {
+  return pt_;
+}
+
+string ParseJsonObj::GetChildData(const string& path) {
+  return pt_->get<string>(path);
+}
+
+map<string, string> ParseJsonObj::GetChildDataMap(const string& path) {
+  map<string, string> key_value_map;
+  
+  auto child = pt_->get_child(path);
+  for (auto pos = child.begin(); pos!= child.end(); ++pos) {
+    key_value_map.insert(make_pair(pos->first, pos->second.data()));
+  }
+  return std::move(key_value_map);
+}
+
+vector<map<string, string> > ParseJsonObj::GetChildDataArray(const string& path) {
+  vector<map<string, string> > result_array;
+  map<string, string> key_value_map;
+
+  auto child = pt_->get_child(path);
+    for (ptree::value_type &v : child.get_child("")) {
+      auto nextchild = v.second.get_child("");
+      for (auto pos = nextchild.begin(); pos!= nextchild.end(); ++pos) {
+        key_value_map.insert(make_pair(pos->first, pos->second.data()));        
+      }
+      result_array.push_back(key_value_map);
+      key_value_map.clear();
+    }
+  return std::move(result_array);
+}
+
+void ParseJsonObj::PutChildData(const string& key, const string& value) {
+  if(pt_ != NULL) {
+    pt_->put(key, value);
+  }
+}
+
+void ParseJsonObj::PutChildDataMap(const string& key, const map<string, string>& key_value_map) {
+  if(pt_ != NULL) {
+    ptree child;
+    for (auto myPair : key_value_map) {
+      child.put(myPair.first, myPair.second);
+    }
+    pt_->add_child(key, child);
+  }
+}
+
+void ParseJsonObj::PutChildDataArray(const string& key, const vector<map<string, string> >& array_list) {
+  if(pt_ != NULL) {
+    ptree first;
+    for (auto key_value_map : array_list) {
+      ptree second;
+      for (auto myPair : key_value_map) {
+        second.put(myPair.first, myPair.second);
+      } 
+      first.push_back(make_pair("", second)); 
+    }
+    pt_->add_child(key, first);
+  }
+}
+
+void ParseJsonObj::SaveConfig() {
+  if(pt_ != NULL) {
+    boost::property_tree::write_json(configPath_, *pt_);
+  }
+}
+
+```
+
+
+

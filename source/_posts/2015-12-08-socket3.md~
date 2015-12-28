@@ -20,7 +20,7 @@ IO复用（select和epoll）：也叫IO多路复用，也叫事件驱动。IO复
 ![信号驱动式io](http://ww1.sinaimg.cn/large/9d13bd87gw1eynp1eeuhnj20rl0dk3zq.jpg)
 
 
-异步IO（posix的aio_系列函数）：要想使用`preactor`模式的话，应该要用`aio`的函数，`preactor`的`boost::asio`在linux下还是使用`select`和`epoll`来模拟异步，实际上还是阻塞的。
+异步IO（posix的aio_系列函数）：要想使用`preactor`模式的话，应该要用`aio_`的函数，`preactor`的`boost::asio`在linux下还是使用`select`和`epoll`来模拟异步，实际上还是阻塞的。
 
 Linux下有两种异步IO：
 
