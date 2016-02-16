@@ -4,6 +4,19 @@ categories: property_tree
 tags: [boost, property_tree, json]
 ---
 
+> 请注意，这段代码只能运行在`boost`的版本比较高的情况下。我的`ubuntu 14.04LTS`的`boost`版本是`1.54`，所以能编译通过，但是今天我在我的`centos 6.5`上编译通不过，因为我的`centos 6.5`的`boost`版本是`1.41`。我在`centos 6.5`下是用`yum`安装`boost`的命令是
+```
+yum -y groupinstall "Development Tools"
+yum -y install boost-*
+```
+然而这个`yum -y install boost-*`在我的`zsh`环境下执行不了，我只好切换到`bash`执行。`boost`安装路劲是`/usr/include/boost`，然后有一个专门的`version.hpp`是显示`boost`版本的，这个时候我查看到我用`yum`安装的`boost`是`1.41`版本。随后我重新下载了`boost`的源代码，使用`b2`安装了最新版。不得不说`centos`的软件更新速度真是慢。同样是安装，我的`Ubuntu 14.04LTS`用的是
+```
+sudo apt-get install libboost-all-dev
+```
+安装的`boost`就是`1.54`版本。
+
+=========================== 2015年12月13日 ========================================
+
 
 解析`json`由于没有`attribute`，相比解析`xml`少了很多繁文缛节。把这篇博客和我上一篇博客《使用boost::property_tree解析xml与json (二):parse_xml设计》对比起来看理解起来会很容易。
 
@@ -253,15 +266,15 @@ void SaveConfig();
 来保存结果。
 这个和`xml`的操作是一样的。
 
-## 我的测试详情请访问[test_json.cpp](https://github.com/adairjun/MQPool/blob/master/gtest/test_json.cpp)
+## 我的测试详情请访问[test_json.cpp](https://github.com/adairjun/MQueue/blob/master/gtest/test_json.cpp)
 
 ## 贴上完整的源代码：
 
 ## `parse_json.h`
 
 ```
-#ifndef MQPOOL_INCLUDE_PARSE_JSON_H_
-#define MQPOOL_INCLUDE_PARSE_JSON_H_
+#ifndef MQUEUE_INCLUDE_PARSE_JSON_H_
+#define MQUEUE_INCLUDE_PARSE_JSON_H_
 
 /* 以前一直都是把解析json文件的代码放在池的构造函数当中,这里把它独立出来
  *  使用boost的json解析库,也推荐使用rapidjson,

@@ -119,8 +119,8 @@ static void* CreateClass##class_name (){	    \
 代码比较短，我就直接贴上来了：
 `class_factory.h`
 ```
-#ifndef MQPOOL_INCLUDE_CLASS_FACTORY_H_
-#define MQPOOL_INCLUDE_CLASS_FACTORY_H_
+#ifndef MQUEUE_INCLUDE_CLASS_FACTORY_H_
+#define MQUEUE_INCLUDE_CLASS_FACTORY_H_
 
 #include "object.h"
 #include <string>
@@ -177,12 +177,12 @@ inline ClassFactory& ClassFactoryInstance() {
 
 //#的作用是在class_name的左右两边都加上双引号，##的作用是连接两个字符串
 
-#endif /* MQPOOL_INCLUDE_CLASSS_FACTORY_H_ */
+#endif /* MQUEUE_INCLUDE_CLASSS_FACTORY_H_ */
 ```
 
 `class_factory.cpp`
 ```
-#include "MQPool/class_factory.h"
+#include "MQueue/class_factory.h"
 
 ClassFactory::ClassFactory() {
 }
@@ -248,7 +248,7 @@ typedef Object* (*ObjectCreate_t)();
 ```
 因为我最初的想法是想利用`C++`的多态性质来模拟反射，当时的想法是为了能将函数指针统一起来放入`factoryMap_`当中，第一想法就是使用基类的指针，根本没想到`void*`，使用`Object*`的话就导致实例化出来的对象只能调用`virtual`函数。在最开始的时候写代码写的还很顺畅，到了后来我才碰壁了，才改成了`void*`。
 
-## 有关 `inline ClassFactory\& ClassFactoryInstance()`
+## 有关 `inline ClassFactory& ClassFactoryInstance()`
 关于这个函数的设计有必要展开讨论。首先，既然设计出了这个`factory`，需要用到它的场景就是这样子：整个代码当中只有一份`factory`，功能就是生产对象。所以任何时候我将`ObjectCreate_t`这个函数指针放入`factory`当中的时候，这个`factory`一定是唯一的。
 如果比较难理解的话可以这样想：如果代码中存在两份`factory`，那么我要将`ObjectCreate_t`这个函数指针放入`factory`当中的时候，应该放入哪一个？所以只有一份`factory`就能避免这个问题。
 

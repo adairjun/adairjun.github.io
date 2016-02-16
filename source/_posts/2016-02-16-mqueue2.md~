@@ -1,0 +1,441 @@
+title: 消息队列与共享内存(二)：protobuf序列化消息
+date: 2016-02-16 20:26:32
+categories: MessageQueue
+tags: [protobuf]
+---
+
+
+上一篇文章简单地介绍了System V的消息队列。但是如果只是简单的封装一下系统调用，这种学习方法我觉得没有任何的意义。我觉得既然说到了消息队列，那么进一步就应该谈一谈消息的结构。在上文当中消息队列的模板是：
+```
+struct msgbuf {
+  long mtype;  /* message type, must be > 0 */
+  char mtext[1]; /* message data */
+};
+```
+主要的消息体就是放在了`mtext`当中，当然长度可以自己随便设置。我接下来要谈到的消息结构就是有关消息经过`protobuf`序列化之后够放入`mtext`当中去。
+
+我自己学习使用`protobuf`的代码在这里：[rapidmsg](https://github.com/adairjun/rapidmsg)。
+
+## 入门
+假设我在我的网络通信程序当中有这么一个需求：从客户端发送一组字符串给服务器，服务器解析这一组字符串然后按照一定的顺序排列之后返回给客户端。
+简单的做法就是手动将组当中的字符串拼接称为一条字符串，比如字符串之间可以使用类似`###`的分隔符，然后服务器收到这条字符串之后使用`split`就可以将它解析出来。处理完之后再拼接成为一条字符串，返回给客户端。这种简单的方法缺点当然是非常明显：第一，就是这种方式只能传递字符串，如果我想要在数据中加入数字，那么服务器如何分辨这是一个数字？当然可以用个标志位来表明这是个数字。但是如果我想在传递的字符串组当中再加一个字符串组嵌套呢？那是不是又该加一个分隔符号？ 第二，安全性。如果客户端和服务器要通过外网来传递数据，谁敢用这么不安全的方式？传输的数据一眼就能看出来，没有任何加密。第三，如果传输的数据比较复杂，就像第一条说的既有数字，又有字符串，还有字符串组，那么解析的程序就要考虑很多种的情况。
+
+`google`的`protobuf`就是为了方便序列化消息而开发的项目。
+比如说我想传这么一组数据：首先是`string`类型的用户名字，然后是`int`型的用户id，然后又是`string`类型的用户电子邮件的地址，`string`类型的用户电话，还有枚举类型的电话类型，但是用户电话可以有多个。
+
+可以直接写一个`addressbook.proto`文件:
+```
+message Person {
+  required string name = 1;
+  required int32 id = 2;
+  optional string email = 3;
+  repeated int32 phone = 4;
+}
+```
+`protobuf`对于每个字段的类型是这样的：
+
+
+| .proto类型       | C++类型   |   
+| --------         | -----:    | 
+| double           | double   |  
+| float            |   float    |  
+| int32            |    int32    | 
+| int64            |    int64    | 
+| uint32           |    uint32    | 
+| uint64           |    uint64    | 
+| sint32           |    int32    | 
+| sint64           |    int64    | 
+| fixed32          |    uint32    | 
+| fixed64          |    uint64    | 
+| sfixed32         |    int32    | 
+| sfixed64         |    int64    | 
+| bool             |    bool   | 
+| string           |    string    | 
+| bytes            |    string    | 
+
+字段的类型详情可参见：[https://developers.google.com/protocol-buffers/docs/proto3](https://developers.google.com/protocol-buffers/docs/proto3)
+
+其实别看类型有这么多，其实我用的类型也就只有`double`, `uint32`, `string`这三种。
+
+写完了`proto`文件之后使用编译命令：
+```
+protoc --proto_path=. --cpp_out . ./addressbook.proto
+```
+`proto_path`参数指定`proto`文件的路径名。`cpp_out`指定生成代码的路径名。可以看到在当前目录下生成了`addressbook.pb.h`和`addressbook.pb.cc`这两个文件。
+
+接下来看看`protobuf`为我们自动生成的头文件当中用到了哪些`getter`和`setter`方法：
+通过查看头文件`addressbook.pb.h`，可以发现针对每个字段都会大致生成如下几种函数（用`string`类型的`name`为例）：
+
+```
+  // required string name = 1;
+  inline bool has_name() const;
+  inline void clear_name();
+  static const int kNameFieldNumber = 1;
+  inline const ::std::string& name() const;
+  inline void set_name(const ::std::string& value);
+  inline void set_name(const char* value);
+  inline void set_name(const char* value, size_t size);
+  inline ::std::string* mutable_name();
+  inline ::std::string* release_name();
+  inline void set_allocated_name(::std::string* name);
+```
+
+对于每个字段会生成一个has函数(has_name)、clear清除函数(clear_name)、set函数(set_name)、get函数(name,mutable_name和release_name)。对于`const std::string &name() const`的get函数而言，返回的是常量字段，不能对其值进行修改。但是在有一些情况下，对字段进行修改是必要的，所以提供了一个mutable版的get函数，通过获取字段变量的指针，从而达到改变其值的目的。
+对于`set_allocated_name`这个函数是根据`string`指针来设置`name`的值，看起来没什么用，不过当类型不是`string`,而是同样身为`message`的类型的时候，就会知道只能用这个`set_allocated`的函数来设置变量的值。
+
+而对于`repeated`字段：
+```
+ // repeated int32 phone = 4;
+  inline int phone_size() const;
+  inline void clear_phone();
+  static const int kPhoneFieldNumber = 4;
+  inline ::google::protobuf::int32 phone(int index) const;
+  inline void set_phone(int index, ::google::protobuf::int32 value);
+  inline void add_phone(::google::protobuf::int32 value);
+  inline const ::google::protobuf::RepeatedField< ::google::protobuf::int32 >&
+      phone() const;
+  inline ::google::protobuf::RepeatedField< ::google::protobuf::int32 >*
+      mutable_phone();
+```
+
+可以看出，多了一个`add`函数，而且`getter`和`setter`都需要依赖下标值。
+使用方法：
+`hello.cpp`：
+
+```
+#include <iostream>
+#include <string>
+#include "addressbook.pb.h"
+
+using namespace std;
+int main(int argc, char** argv) {
+  Person person;
+  //对于普通的字段直接使用setter方法
+  person.set_name("this is name");
+  person.set_id(1);
+  //person.set_email("test@test.com");
+  //对于repeated的字段只能使用add方法
+  person.add_phone(123);
+  person.add_phone(456);
+  
+  //将persion序列化成字符串
+  string str;
+  person.SerializeToString(&str);
+
+  //从字符串当中反序列化取出对象
+  Person mine;
+  mine.ParseFromString(str);
+  
+  cout << "mine.name() --- " << mine.name() << endl;
+  cout << "mine.id() --- " << mine.id() << endl;
+  // 对于optional的字段，由于是可选的所以先判断一下消息当中是否有值
+  if (mine.has_email()) {
+    cout << "mine.has_email() --- " << mine.has_email() << endl;
+    cout << "mine.email() --- " << mine.email() << endl;
+  }
+  for (int i = 0; i< mine.phone_size(); ++i) {
+    cout << "mine.phone(" << i << ") --- " << mine.phone(i) << endl;
+  }
+  return 0;
+}
+
+```
+编译命令：
+```
+g++ -o hello hello.cpp addressbook.pb.cc -lprotobuf
+```
+
+## 嵌套message
+
+对于message当中又使用了message的类型，那么内置的`mesasge`类型就没有`set`这三个函数。只能使用`set_allocate`前缀的函数来设置值。
+
+比如说这样的情况；
+`addressbook.proto`：
+```
+message MyType {
+    required string type = 1;
+}
+
+message Person {
+    required string name = 1;
+    required int32 id = 2;
+    optional string email = 3;
+    repeated int32 phone = 4;
+    required MyType ptype = 5;
+}
+```
+
+在这个`proto`文件当中的`Person`的`ptype`这个字段，它的类型就是自己定义的`message`类型，对于这种类型，`protobuf`并没有为之生成对应的`setter`，只能使用`set_allocated_ptype`这个函数。
+
+```
+  // required .MyType ptype = 5;
+  inline bool has_ptype() const;
+  inline void clear_ptype();
+  static const int kPtypeFieldNumber = 5;
+  inline const ::MyType& ptype() const;
+  inline ::MyType* mutable_ptype();
+  inline ::MyType* release_ptype();
+  inline void set_allocated_ptype(::MyType* ptype);
+```
+
+使用`set_allocated_ptype`这个函数有一个地方需要注意的。
+比如说如果我这样用：
+```
+MyType thetype;
+thetype.set_type("this is type");
+Person person;
+......
+person.set_allocated_ptype(&thetype);
+```
+毫无疑问会出错，编译能通过，在我的`Ubuntu`上运行的错误有：
+```
+[1]    14882 segmentation fault (core dumped)  ./hello
+```
+
+解决方法是使用`new`：
+```
+MyType* thetype = new MyType;
+thetype->set_type("this is type");
+Person person;
+......
+person.set_allocated_ptype(thetype);
+```
+这样运行起来就没有问题了。
+
+## extend
+
+`protobuf`的`extend`扩展功能能够在另外的`proto`文件当中扩展当前`proto`文件的`message`类型。
+
+使用方法是这样的：
+首先要在需要扩展的`message`当中加上`extension`，比如说：
+```
+message Person {
+    required string name = 1;
+    required int32 id = 2;
+    optional string email = 3;
+    repeated int32 phone = 4;
+    required MyType ptype = 5;
+    extensions 100 to max;
+}
+```
+
+这里的`extensions 100 to max`是指扩展的时候要从100标识号开始到最大的标识号。
+然后在本文件当中就可以直接这样写：
+```
+extend Person {
+    optional string hello = 101;
+}
+```
+看到这里的标识号是101。
+通常情况下在选择标符号时，标识号产生的规则中应该避开[19000－19999]之间的数字，因为这些已经被`protobuf`实现中预留了。
+
+但是这样子在同一个文件当中使用`extend`似乎没有什么意义，我们需要在另外的文件当中使用`extend`的话应该是用`import`。
+
+比如我另外写一个文件`other.proto`：
+```
+import "addressbook.proto";
+
+extend Person {
+    optional string extend_str = 110;
+    optional MyType etype = 111;
+}
+```
+这可是未完成版本，直接编译的话会有问题，提示找不到`Person`和`MyType`。是由于`addressbook.proto`文件当中没有使用`package`的原因。使用`import`就必须使用`package`。
+
+完成版本是这样：
+`addressbook.proto`：
+```
+package addressbook;
+
+message MyType {
+    required string type = 1;
+}
+
+message Person {
+    required string name = 1;
+    required int32 id = 2;
+    optional string email = 3;
+    repeated int32 phone = 4;
+    required MyType ptype = 5;
+    extensions 100 to max;
+}
+
+extend Person {
+    optional string hello = 101;
+}
+```
+
+`other.proto`：
+```
+package addressbook.other;
+
+import "addressbook.proto";
+
+extend addressbook.Person {
+    optional string extend_str = 110;
+    optional addressbook.MyType etype = 111;
+}
+```
+
+看一看`protobuf`为我生成的代码：
+`addressbook.pb.h`
+```
+GOOGLE_PROTOBUF_EXTENSION_ACCESSORS(Person);
+extern ::google::protobuf::internal::ExtensionIdentifier< ::addressbook::Person,
+    ::google::protobuf::internal::StringTypeTraits, 9, false >
+  hello;
+```
+
+还有在`other.pb.h`
+```
+static const int kExtendStrFieldNumber = 110;
+extern ::google::protobuf::internal::ExtensionIdentifier< ::addressbook::Person,
+    ::google::protobuf::internal::StringTypeTraits, 9, false >
+  extend_str;
+static const int kEtypeFieldNumber = 111;
+extern ::google::protobuf::internal::ExtensionIdentifier< ::addressbook::Person,
+    ::google::protobuf::internal::MessageTypeTraits< ::addressbook::MyType >, 11, false >
+  etype;
+```
+并没有任何`getter`和`setter`方法。其实是有的，相对应的接口都在宏"GOOGLE_PROTOBUF_EXTENSION_ACCESSORS"当中了，我看了[Protobuf 语法指南](http://colobu.com/2015/01/07/Protobuf-language-guide/)，给出了接口：     `HasExtension()`，`ClearExtension()`，`GetExtension()`，`SetExtension()`，`MutableExtension()`，以及 `AddExtension()`。
+
+如果`extend`当中的是普通类型，那么使用`SetExtension`就可以。如果`extend`当中的也是`message`的类型，那么就只能使用`MutableExtension`来做`set`的操作。
+
+比如实现方式：
+`hello.cpp`
+```
+#include <iostream>
+#include <string>
+#include "addressbook.pb.h"
+#include "other.pb.h"
+
+using namespace std;
+int main(int argc, char** argv) {
+  ::addressbook::Person person;
+  person.set_name("this is name");
+  person.set_id(1);
+  //person.set_email("test@test.com");
+  person.add_phone(123);
+  person.add_phone(456);
+  ::addressbook::MyType* thetype = new ::addressbook::MyType;
+  thetype->set_type("this is type");
+  person.set_allocated_ptype(thetype);
+  //===================================================================================
+  // 普通的字段只需要使用SetExtension
+  person.SetExtension(::addressbook::hello, "this is hello");
+  person.SetExtension(::addressbook::other::extend_str, "this is extend_str");
+  // message类型的字段需要使用MutableExtension，要先获取到指针，然后再操作
+  ::addressbook::MyType* abctype = person.MutableExtension(::addressbook::other::etype);
+  abctype->set_type("this is abc type");
+  
+  string str;
+  person.SerializeToString(&str);
+
+  ::addressbook::Person mine;
+  mine.ParseFromString(str);
+  
+  cout << "mine.name() --- " << mine.name() << endl;
+  cout << "mine.id() --- " << mine.id() << endl;
+  if (mine.has_email()) {
+    cout << "mine.has_email() --- " << mine.has_email() << endl;
+    cout << "mine.email() --- " << mine.email() << endl;
+  }
+  for (int i = 0; i< mine.phone_size(); ++i) {
+    cout << "mine.phone(" << i << ") --- " << mine.phone(i) << endl;
+  }
+  cout << "mine.ptype().type() --- " << mine.ptype().type() << endl;
+  //==================================================================================
+  //调用extension的时候，不管是普通字段还是message字段都只要使用GetExtension
+  cout << "person.GetExtension(::addressbook::hello)" << person.GetExtension(::addressbook::hello) << endl;
+  cout << "person.GetExtension(::addressbook::other::extend_str)" << person.GetExtension(::addressbook::other::extend_str) << endl;
+  cout << "person.GetExtension(::addressbook::other::etype).type()" << person.GetExtension(::addressbook::other::etype).type() << endl;
+
+  return 0;
+}
+```
+
+## `proto`文件的设计
+
+有关入门和比较重要的嵌套message和extend已经介绍完了，现在进一步就该进入主题了：`proto`文件的设计。
+我参考了这篇文章：[《Protobuf协议设计》](https://github.com/zfengzhen/Blog/blob/master/article/protobuf%E5%8D%8F%E8%AE%AE%E8%AE%BE%E8%AE%A1.md)，我采用其中的`Extension`的方式，业务逻辑包使用`Body`嵌套。这样能够使得`proto`文件阅读性更强。
+
+好了，我的[proto文件](https://github.com/adairjun/message/tree/master/proto)，其中有2个`proto`文件：[rapidmsg.proto](https://github.com/adairjun/message/blob/master/proto/rapidmsg.proto)和[test.151000.153000.proto](https://github.com/adairjun/message/blob/master/proto/test.151000.153000.proto)两个文件。
+
+之所以把测试用的`proto`文件取名为`151000.153000`是设定在这个`proto`文件当中`extend`的标识号是从151000到153000之间。
+
+### 消息头
+`rapidmsg.proto`是总体的消息定义。把消息起名为`rapidmsg`是借鉴了`rapidxml`和`rapidjson`的名字。
+
+```
+package rapidmsg;
+```
+定义消息的格式`RMessage`，只有两部分，协议头和协议体。
+```
+message RMessage {
+    // 协议头
+    required Head head = 1;
+
+    // 协议体
+    required Body body = 2;
+};
+```
+消息头：
+```
+
+message Head {
+    required string session_no = 1;                // 会话的编号，这里之所以用string形式是为了最后的一个回话可以标记为"final",而如果是使用数字类型的话，根本不知道哪一个是最后的会话。
+    required uint32 message_type = 2;              //  消息类型，比如10就代表了SIMPLE_RESPONSE这个消息，这个是为了做个检查，判断一下是否和消息体当中的消息类型一致。而这个消息类型同样用在消息队列的long messageType当中
+    optional string client_ip = 3;                 // 客户端ip
+    optional string target_ip = 4;                 // 目标IP
+    optional uint32 target_port = 5;               // 目标端口
+};
+```
+
+消息类型，用于消息队列当中`long messageType`当中：
+```
+enum MessageType {
+    SIMPLE_RESPONSE = 10;
+};
+```
+
+消息体，设置扩展选项，测试的`test.151000.153000.proto`就扩展这个`Body`：
+```
+message Body {
+    optional SimpleResponse simple_response = 1;
+    extensions 100 to max;
+};
+```
+
+至于`SimpleResponse`这个类型就是自己定义的`message`类型了。
+
+现在用`test.151000.153000.proto`示例来表示如何扩张`rapidmsg`的`body`：
+首先扩张`MessageType`，扩张的时候从逻辑上讲一定是一个`request`和`response`。
+```
+// =====================================================================
+enum MessageType {
+        BEGINNING_ID = 151000;                 //标记是开始，没意义
+// -------------------------------------------------------------------------------------
+        // 消息类型 
+        JUST_TEST_REQUEST = 151001;             // 一个测试 
+        JUST_TEST_RESPONSE = 151002;
+// -------------------------------------------------------------------------------------
+        ENDING_ID = 153000;                   //标记是结束，也没意义。
+};
+```
+
+继续扩张`body`：
+```
+// =====================================================================
+extend rapidmsg.Body {
+        optional JustTestRequest just_test_request = 151001;
+        optional JustTestResponse just_test_response = 151002;
+};
+```
+至于`JustTestRequest`和`JustTestResponse`再接着定义一下就OK了。 
+
+以后的任何消息定义都只需要仿造`just_test_request`和`just_test_response`这两个写在它们的下面，或者直接按照这个格式另外写一个`proto`文件。
+
+## 延伸阅读：
+[玩转Protocol Buffers](http://www.searchtb.com/2012/09/protocol-buffers.html)
+[Protobuf 语法指南](http://colobu.com/2015/01/07/Protobuf-language-guide/)
+

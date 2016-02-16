@@ -13,7 +13,7 @@ yum -y install boost-*
 ```
 sudo apt-get install libboost-all-dev
 ```
-，安装的`boost`就是`1.54`版本。
+安装的`boost`就是`1.54`版本。
 
 =========================== 2015年12月13日 ========================================
 
@@ -302,15 +302,15 @@ void SaveConfig();
 来保存结果。
 因为之前的写入都是写入到`ptree`这个数据结构当中的，使用这个接口将`ptree`的数据同步到`xml`文件。
 
-## 我的测试详情请访问[test_xml.cpp](https://github.com/adairjun/MQPool/blob/master/gtest/test_xml.cpp)
+## 我的测试详情请访问[test_xml.cpp](https://github.com/adairjun/MQueue/blob/master/gtest/test_xml.cpp)
 
 ## 最后贴上完整的源代码：
 
 ## `parse_xml.h`
 
 ```
-#ifndef MQPOOL_INCLUDE_PARSE_XML_H_
-#define MQPOOL_INCLUDE_PARSE_XML_H_
+#ifndef MQUEUE_INCLUDE_PARSE_XML_H_
+#define MQUEUE_INCLUDE_PARSE_XML_H_
 
 /* 以前一直都是把解析xml文件的代码放在池的构造函数当中,这里把它独立出来
  *  使用boost的xml解析库,也推荐使用rapidxml,而且boost的xml解析库用的就是rapidxml

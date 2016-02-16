@@ -174,4 +174,4 @@ void LogObj::WriteLog() {
 
 完整代码请见[https://github.com/adairjun/MQPool/blob/master/util/logobj.cpp](https://github.com/adairjun/MQPool/blob/master/util/logobj.cpp)
 
-> 代码已经同步更新到SocketPool和DBPool
+> 代码已经同步更新到[DBPool](https://github.com/adairjun/DBPool)和[SocketPool](https://github.com/adairjun/SocketPool)

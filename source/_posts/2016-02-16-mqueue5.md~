@@ -1,0 +1,128 @@
+title: 消息队列与共享内存(五)：企业应用级的消息队列
+date: 2016-02-16 20:24:08
+categories: MessageQueue
+tags: [IPC, MessageQueue]
+---
+
+## 概述
+其实进程之间的消息队列的通信方式说白了就是一个消息链表，有足够写权限的进程能够往队列中放置消息，有足够读权限的进程可从队列中取走消息。再泛化一点，数据库`Mysql`也可以用于进程间的通信，一个进程往`Mysql`当中写数据，另外的进程从`Mysql`当中读数据。
+
+对于`linux`的System V消息队列，其实并不比使用第三方的企业级软件（比如`RabbitMQ`)显得更加高效，而且还有诸多限制。我自己实现这个[message_queue](https://github.com/adairjun/MQueue/blob/master/util/message_queue.cpp)只是为了复习一下书本，真正在架构当中使用的话，即使自己写的消息队列足够轻量级，但是也不一定就比专业的消息队列软件更快，而且System V消息队列也不是没有限制。
+[《UNPv2》](http://book.douban.com/subject/4118577/)当中明确指出了消息队列的限制：
+![System V 消息队列典型限制](http://ww3.sinaimg.cn/large/9d13bd87jw1f041msyrxbj20it05wmy7.jpg)
+那么写的消息队列还要时刻记住有哪些限制，维护起来又不方便。
+
+> 记得在我高中毕业的时候，曾近一段时间对围棋很感兴趣。当时上网特意看了邱百瑞的视频。他教棋的时候说：“围棋有两种下法，一种是圈实地，一种是拿棋势。他建议初学者多拿棋势，为什么呢，因为只有这样才能够判断当前的棋势是不是对自己有利。如果每次下棋都只知道拿实地，这样很难有进步。”虽然我的围棋已经完全荒废了，但是这句话却时常从我脑中冒出来。我想如果自己为了练手写个框架，那么IPC就可以用自己造的轮子，因为出了什么问题自己马上就知道了，如果每次遇到问题都去网上找别人写好的程序下来用，那么自己会很难进步。
+
+## RabbitMQ
+我上一家公司的一套系统上跑的就是`RabbitMQ`，我并没有用过它，但是据我的同事和我说它的性能不错。
+`RabbitMQ`是使用`Erlang`编写的一个开源的消息队列，本身支持很多的协议：`AMQP`，`XMPP`, `SMTP`, `STOMP`。它非常重量级，更适合于企业级的开发。
+
+![RabbitMQ的6个功能](http://ww4.sinaimg.cn/large/9d13bd87gw1f00bbyvhbqj20pf0e70wl.jpg)
+
+`RabbitMQ`的C接口：[rabbitmq-c](https://github.com/alanxz/rabbitmq-c)
+
+> `Erlang`是爱立信开发的高度并行的语言，它的高并发性的起源是它的`actor`模式。`C++`也有`actor`模式的库：[Theron](http://www.theron-library.com/)和[CAF](http://www.actor-framework.org/)
+
+## Redis
+`Redis`(REmote DIctionary Server)这种`key-value`类型的`NoSQL`数据库拥有很强大的应用场景。除了作为缓存之外，使用`Redis`也能作为跨机器的消息队列来使用。
+
+我公司以前用的是`memcached`做缓存，不过现在都换成`Redis`了。原因是我们看了`stackoverflow`的一篇文章：[Memcached vs. Redis?](http://stackoverflow.com/questions/10558465/memcached-vs-redis)。目前`memcached`对`Redis`没有任何的优势可言了，但是`Redis`却`memcached`不曾有的优点。
+
+### Redis常用的命令有：
+1，启动`Redis`的命令特别简单：
+```
+redis-server
+```
+2，如果要根据特定的配置文件来启动`Redis`的话，那么只要在后面跟上配置文件的路径就可以了：
+```
+redis-server redis.conf
+```
+3，设置`Redis`的密码，修改配置文件，加上这句话：
+```
+requirepass mima //设置密码为mima,记得重启redis
+```
+4，连接本机`Redis`
+```
+redis-cli
+```
+5，连接远程`Redis`
+```
+redis-cli -h host -p port -a password
+```
+
+
+Redis支持五种数据类型：string（字符串），hash（哈希），list（列表），set（集合）及zset(sorted set：有序集合)。
+
+6，设置string类型的键值对，使用`set`就可以了：
+```
+set myKey abc
+```
+获取键值对
+```
+get myKey
+```
+7，hash 是一个键值对集合。使用`hmset`和`hmget`
+将username，password，cellphone放入user:1这个哈希表当中：
+```
+hmset user:1 username password cellphone
+```
+```
+hmgetall user:1
+```
+8，list是一个列表，使用`lpush`和`lrange`
+将redis，rabbitmq放入mylist这个列表当中：
+```
+lpush mylist redis
+lpush mylist rabbitmq
+```
+```
+lrange mylist 0 2
+```
+9，set是一个无重复值的集合，使用`sadd`和`smembers`
+```
+sadd myset redis
+sadd myset redis
+sadd myset rabbitmq
+```
+```
+smembers myset 
+```
+10，zset，也就是sorted set，和set一样无重复值，不同的是每个元素都会关联一个double类型的分数。redis正是通过分数来为集合中的成员进行从小到大的排序，排序命令为`zrangescore`
+
+```
+zadd sortset 0 redis
+zadd sortset 5 rabbitmq
+zadd sortset 2 mysql
+```
+```
+zrangescore sortset 0 10
+```
+
+11，使用`del`加上key可以删除任何数据结构
+```
+del mykey
+del user:1
+del mylist
+del myset
+del sortset
+```
+
+
+> 之所以使用`Redis`加上`Mysql`两套数据库的原因是因为`Redis`是内存型数据库，数据保存在内存中，通过tcp直接存取，速度快，并发高。还有就是因为实时更新 `MySQL`可能导致性能问题，让查询变慢，对于开发期货的交易平台，实时获取到行情是非常重要的，使用`Redis`将通过`CTP`接口获取到的行情放到`Redis`当中去，因为恰好行情也是一种key-value模式的数据，所以从`Redis`当中取出行情也比在关系型数据库当中取行情要快许多，关系型数据库强大的SQL查询在这里的作用不大。`Redis`支持数据的持久化，可以将内存中的数据保持在磁盘中，重启的时候可以再次加载进行使用。之所以还用`Mysql`是由于遗留问题，有一部分其他业务用到了`mysql`，而且需要联合使用`Redis`和`mysql`这两部分的数据，需要聚合数据，简单的聚合数据可以在程序里完成，但是这里的业务有它的特殊性，并不需要及时获取`Redis`上存储的数据。那么经过我们的讨论，想了一个耦合度很低的解决方案，就是每天收盘之后，把`Redis`的数据复制到`mysql`当中去做数据迁移，让聚合数据直接发生在数据库层面，这样就算`Redis`设计的key-value结构变了，只需要改数据迁移的代码就可以了，并不需要动业务逻辑的代码。
+
+
+## kafka
+如果要用分布式消息系统的话，`kafka`首当其冲。它最初由`LinkedIn`公司开发，使用`Scal`a编写，之后成为`Apache`项目的一部分。这个消息队列我也没有使用过，我用过`Apache`的东西目前只有`tomcat`，`hadoop`，`zookeeper`，连http的服务器我用的都是`nginx`。之所以把这个写在这里是因为`Apache`的`Storm`和`Spark`都支持与`Kafka`集成，名声大噪的`Spark`的应用将会越来越多，那么与`Spark`集成的`kafka`也将迎来它的繁荣时期。
+
+
+## 扩展阅读
+[RabbitMQ官网](http://www.rabbitmq.com/)
+[RabbitMQ 使用参考](http://www.zouyesheng.com/rabbitmq.html#toc1)
+[Redis官网](http://redis.io/)
+[新浪微博开放平台Redis实践](http://www.slideshare.net/mysqlops/redis-9806617)
+[Apache Kafka](http://kafka.apache.org/)
+[你应该知道的 RPC 原理](http://blog.jobbole.com/92290/)
+
+## 尾声
+单机上的进程间通信使用System V 消息队列的真不是很多，因为有很多很好的替代方案，那么是不是`linux`系统调用级别的 IPC就没用用处了呢？当然不是，IPC有个重中之重，是其他应用软件替代不了的，也就是下一篇文章要介绍的，更快的方式---共享内存。

@@ -119,8 +119,8 @@ static void* CreateClass##class_name (){	    \
 代码比较短，我就直接贴上来了：
 `class_factory.h`
 ```
-#ifndef MQPOOL_INCLUDE_CLASS_FACTORY_H_
-#define MQPOOL_INCLUDE_CLASS_FACTORY_H_
+#ifndef MQUEUE_INCLUDE_CLASS_FACTORY_H_
+#define MQUEUE_INCLUDE_CLASS_FACTORY_H_
 
 #include "object.h"
 #include <string>
@@ -177,12 +177,12 @@ inline ClassFactory& ClassFactoryInstance() {
 
 //#的作用是在class_name的左右两边都加上双引号，##的作用是连接两个字符串
 
-#endif /* MQPOOL_INCLUDE_CLASSS_FACTORY_H_ */
+#endif /* MQUEUE_INCLUDE_CLASSS_FACTORY_H_ */
 ```
 
 `class_factory.cpp`
 ```
-#include "MQPool/class_factory.h"
+#include "MQueue/class_factory.h"
 
 ClassFactory::ClassFactory() {
 }
@@ -345,4 +345,4 @@ static void* CreateClassParseJsonObj (){	    \
 
 所以为了能让宏合法，这里的`AddObject`必须要有返回值，返回`bool`值的原因是`bool`只占一个字节，而`int`要占四个字节。
 
-测试代码请参见:[https://github.com/adairjun/MQPool/blob/master/gtest/test_class_factory.cpp](https://github.com/adairjun/MQPool/blob/master/gtest/test_class_factory.cpp)
+测试代码请参见:[https://github.com/adairjun/MQueue/blob/master/gtest/test_class_factory.cpp](https://github.com/adairjun/MQueue/blob/master/gtest/test_class_factory.cpp)

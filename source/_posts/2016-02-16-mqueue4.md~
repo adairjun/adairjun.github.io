@@ -1,0 +1,243 @@
+title: 消息队列与共享内存(四)：protobuf反射机制
+date: 2016-02-16 20:24:08
+categories: MessageQueue
+tags: [protobuf]
+---
+
+
+## `protobuf`自描述消息
+
+在上一篇文章当中我讲到了使用`protobuf`来序列化消息便于发送，那么如果直接把我的`rapidmsg`用在我的消息队列当中就是这样的情况：
+
+```
+long messageId = test::JUST_TEST_REQUEST;
+
+  RMessage rmessage;
+
+  Head* head = new Head;
+  head->set_session_no("1");
+  head->set_message_type(messageId);
+  head->set_client_ip("127.0.0.1");
+  head->set_target_ip("127.0.0.1");
+  head->set_target_port(9999);
+
+  Body* body = new Body;
+
+  ::rapidmsg::test::JustTestRequest* request = body->MutableExtension(::rapidmsg::test::just_test_request);
+  request->set_test_id(1);
+  request->set_test_name("test_request");
+
+  rmessage.set_allocated_head(head);
+  rmessage.set_allocated_body(body);
+
+  string str;
+  rmessage.SerializeToString(&str); // 将对象序列化到字符串，除此外还可以序列化到fstream等
+
+  RMessage pmessage;
+  pmessage.ParseFromString(str);
+```
+在序列化成`string`之前需要自己设置很多的其他值。但是看这个程序其实有很多地方都不必自己动手设置。其实真正需要自己手动设置的位置也就只有`body`那一块：
+```
+ Body* body = new Body;
+
+  ::rapidmsg::test::JustTestRequest* request = body->MutableExtension(::rapidmsg::test::just_test_request);
+  request->set_test_id(1);
+  request->set_test_name("test_request");
+```
+理想的情况下直接把`body`这个指针传给一个接口，然后其余的工作都由接口来完成。
+
+发送端自然可以这样做，因为发送端知道自己发送的消息类型。
+
+但是接受端就不行了。其实应该这样说：如果接收端仅仅接受特定的消息类型的话，那么很简单就能写一个专门的接口来负责解析消息。但是如果接收端不仅仅接收一种消息呢？一般处理的策略就是在`head`当中加入`body`所属的`message`类型。在接受端先读`head`，根据`head`当中保存的`message`类型来构造一个实例（反射），再用这个实例来解析`body`。这种情况下需要的使用反射，而`protobuf`已经实现了反射功能。
+
+> 一般的后台接口设计都是一个接口只接收一种请求，返回一种响应。接收多种请求，并返回多种响应的接口也有，就是路由器或者网关。比如说公司为了安全考虑，在客户端和服务器的中间写一个路由器`route_machine`或者叫做网关(gateway)，客户端发送过来的消息先做一层解析，然后将消息重新包装发送给服务器。从服务器当中取出响应，解析之后重新包装返回给客户端。这样做就可以在`route_machine`这一层把非法的消息给阻挡住。或者这一层可以用做缓存，当发生缓存不命中的情况下才发送消息给服务器，其余情况都是从缓存当中拿数据返回给客户端，做到降低服务器的流量。这两个例子都说明了接受多种请求的接口有实用场景，所以protobuf的反射功能值得学习。
+我公司这边写了一个前置机`FrontEnd`，但是这个功能比较简单，就是从客户端那里拿到消息，读消息的头，拿到类型之后再转发给对应的后台进程。这个前置机的并没有实现更深度的转发，它的主要作用是隔离后台应用服务器，保证安全。还有一点就是屏蔽后台服务器对用户的复杂性。不论后台服务器部署怎么改变，通过前置机展现给用户的接口始终不变。
+
+## `protobuf`本身的反射
+`Google Protobuf` 本身具有很强的反射`(reflection)`功能，可以根据 `type name` 创建具体类型的 `Message` 对象。
+我自己也写过一篇文章来用C++模拟反射：[使用C++的classFactory来模拟JAVA的反射机制](http://xiongjun.info/2015/12/23/class-factory/)。我写的玩具一般的程序在`protobuf`的反射机制面前真是弱爆了。
+
+使用到了五个接口：
+
+### DescriptorPool::generated_pool()
+
+在`protobuf`的`descriptor.h`头文件当中能找到`gengerated_pool`的使用方法：
+```
+// Get a pointer to the generated pool.  Generated protocol message classes
+  // which are compiled into the binary will allocate their descriptors in
+  // this pool.  Do not add your own descriptors to this pool.
+  // 得到一个指针指向产生的池。在编译期间根据protocol message编译产生二进制文件的时候每个protocol message都会被分配一个描述符descriptor，然后这个descriptor就会自动放入这个池当中。注意不要把你自己的描述符放进这个池里面
+  static const DescriptorPool* generated_pool();
+```
+
+在[protobuf的官方网站](https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.descriptor#DescriptorPool.internal_generated_pool.details)是这样的：
+```
+For internal use only: Gets a non-const pointer to the generated pool.
+
+This is called at static-initialization time only, so thread-safety is not a concern. If both an underlay and a fallback database are present, the underlay takes precedence.
+
+仅仅作为内部使用：得到一个非const指针，指向产生的池
+这个函数仅仅能够在静态初始化的期间被调用，所以线程安全性大可不用担心。如果同时有underlay的数据库和fallback的数据库，那么underlay的数据库有优先权。
+```
+
+已经很明白了，这个接口用来创建一个`DescriptorPool`，陈硕老师在他的文章当中说它包含了程序编译的时候所链接的全部 protobuf Message types，其实不仅仅包含`message`的类型，`enum`的类型也在里面，可以通过`FindEnumValueByName()`根据，因为`enum`类型在创建的时候也会有一个`descriptor`，这个在下文再谈。
+
+由于它是`static`，所以可以被重复调用多次而不会创建多个 DescriptorPool 对象。
+
+### FindMessageTypeByName
+
+同样在`protobuf`的`descriptor.h`头文件当中：
+```
+ // Find a top-level message type by name.  Returns NULL if not found.
+ // 通过名字来获取到顶层message的descriptor。如果并没有找到那么就返回NULL
+  const Descriptor* FindMessageTypeByName(const string& name) const;
+```
+
+### MessageFactory::generated_factory()
+
+在`protobuf`的`message.h`头文件中：
+```
+// This factory is a singleton.  The caller must not delete the object.
+// 这个factory是一个singleton，调用者不能够用delete删掉它
+static MessageFactory* generated_factory();
+```
+
+找到 MessageFactory 对象，它能创建程序编译的时候所链接的全部 protobuf Message types。
+此 Factory 是一个 Singleton，因此重复多次调用 generated_factory 函数不会创建多个 MessageFactory 对象.
+
+### GetPrototype()
+
+在`message.h`当中：
+```
+// This method may or may not be thread-safe depending on the implementation.
+// Each implementation should document its own degree thread-safety.
+// 根据调用的情况这个方法可能是线程安全的也可能不是线程安全的
+// 每次调用需要自己判断它的线程安全性
+virtual const Message* GetPrototype(const Descriptor* type) = 0;
+```
+根据上文所得到的Descriptor*的值来获取Message*，对同一个 Descriptor 多次调用 MessageFactory::GetPrototype 函数将返回同一个对象，也就是default instance，所以不能直接对它进行操作，需要使用New()这个接口来创建一个新的实例。
+
+### New()
+
+在`message.h`当中：
+```
+// Construct a new instance of the same type.  Ownership is passed to the
+// caller.  (This is also defined in MessageLite, but is defined again here
+// for return-type covariance.)
+// 构造一个相同类型的新的实例，新实例的所有权被转交给调用者。
+// 这个同样也在MessageLite当中被定义了，但是返回的类型是不同的
+virtual Message* New() const = 0;
+```
+
+由于New() 是虚函数，所以能返回本对象的一份新实例，类型与本对象的真实类型相同，也就是说返回的类型虽然是`Message*`，但是可以通过`dynamic_cast`来转换成具体 Message Type 的类型指针。
+New 函数构造的 message 对象必须在 MessageFactory 销毁前销毁。
+
+
+## 用法
+
+客户端不仅要传送`protobuf`序列化之后的字符串，还需要将`message`的类型也一并传送出去。比如说我这个程序：
+
+```
+string type_name = "rapidmsg.IpAddress";
+
+IpAddress myip;
+myip.set_ip("1");
+myip.set_type(10);
+
+string str;
+myip.SerializeToString(&str);
+
+string send_mes = type_name + "###" + str;   //###做为分隔符
+
+//接下来就是将send_mes发送出去，为了方便我就不写了，下面的代码就是解析send_mes，就可以用在服务器端
+
+vector<string> fields;
+boost::split(fields, send_mes, boost::is_any_of("###"));  //将send_mes根据###切割，放入vector<string>当中去
+string recv_type_name("");
+string recv_message("");
+for (int i = 0; i<fields.size(); ++i) {
+	recv_type_name = fields[0];
+	if (i!=0 && fields[i]!="") {
+		recv_message = fields[i];
+	}
+}
+
+const google::protobuf::Descriptor* descriptor = google::protobuf::DescriptorPool::generated_pool()->FindMessageTypeByName(recv_type_name);
+
+const google::protobuf::Message* prototype = google::protobuf::MessageFactory::generated_factory()->GetPrototype(descriptor);
+
+// 到了这一步是只能实例化出Message对象，如果知道类型的话就可以这么写：
+// ::rapidmsg::IpAddress* new_obj = dynamic_cast<::rapidmsg::IpAddress*>(prototype->New());
+google::protobuf::Message* new_obj = prototype->New();
+new_obj->ParseFromString(recv_message);
+
+// 由于这里并不知道确定的类型，那么就只能调用protobuf为所有Message都提供的方法。
+cout << new_obj->DebugString() << endl;  //可以看到输出的是ip: "1" type: 10
+
+delete new_obj;
+```
+
+> 不要被反射这两个字蒙住眼睛,老是想着如何使用字符串来初始化一个实例。`protobuf`当中是根据字符串找到`Descriptor*`，再根据`Descriptor*`来初始化一个实例。如果能直接获取到`Descriptor*`，那么连字符串也不需要了。
+
+
+### GetReflectioin
+那么是不是不知道类型就不能获取到当中的值了呢？也不是，还是有办法的。
+那就是------通过GetReflection能够操作`message`的各个字段。
+虽然我不知道发送的`message`的类型到底是`IpAddress`还是`IpPort`还是什么其他的类型，但是有一件事情我是知道的，那就是在所有的类型当中都定义了同一个字段：`required string ip = xxx`（这个当然不是`protobuf`内置的，是需要自己写`proto`文件的时候就写好的，如果自己没有写好，那么这个方法也就没有作用)。
+那么不管你发送什么样的类型的数据，我都能获取到`ip`这个字段的值。
+
+```
+const ::google::protobuf::Reflection* reflection = new_obj->GetReflection();
+
+// 不管发的是什么类型，如果能确定类型当中一定有ip，而且ip定义的类型是string，那么就可以直接获取到
+const ::google::protobuf::FieldDescriptor* rmes_field = descriptor->FindFieldByName("ip");
+
+cout << reflection->GetString(*new_obj, rmes_field) << endl;
+```
+`protobuf`不仅仅对每一个`message`有`google::protobuf::Descriptor`的描述符，而且看到对于每一个字段也有`google::protobuf::FieldDescriptor`的描述符。
+
+
+## 适用场景
+这篇文章介绍的`protobuf`反射机制适用的场景是：发送的消息格式不同。
+比如说客户端发送的是序列化的`CLIENT_REQUEST`，或者`CLIENT_TEST_REQUEST`，我所说的发送的消息格式指的是序列化时候用的消息格式。
+
+至于我的`rapidmsg`使用的是`extend`的方式，发送的消息格式全部都是`RMessage`的格式，仅仅只是在`body`中嵌套了不同的`message`，序列化的时候用的还是`RMessage`，所以就没有使用这个反射的必要了。
+
+使用这种方法应用场景不多，而且需要使用`GetExtension`来获取`body`的时候，这个反射机制也帮不上忙，倒是可以用宏来做这件事情。
+
+
+## 封装代码
+
+[rmessage_util.cpp](https://github.com/adairjun/rapidmsg/blob/master/util/rmessage_util.cpp)
+
+## 有关Makefile需要注意的一点
+由于我的`rmessage_util.cpp`用到了`rapidmsg.pb.h`，所以要保证`make`的时候先编译`proto`文件，后编译`rmessage_util.cpp`这个文件。所以不能简单地把我以前写的`Makefile`照搬过来直接用，而是先用函数把这两个给分开：
+```
+#这是描述proto文件
+PROTOFILES := $(wildcard ./proto/*.proto)
+PROTOHEADERS := $(addsuffix .pb.h, $(notdir $(basename $(PROTOFILES))))
+PROTOCPPFILES := $(addsuffix .pb.cc, $(notdir $(basename $(PROTOFILES))))
+PROTOOBJECTS := $(addsuffix .pb.o, $(notdir $(basename $(PROTOFILES))))
+
+#这是描述util目录下的cpp文件
+LIBCFILES := $(wildcard ./util/*.c)
+LIBCPPFILES := $(wildcard ./util/*.cc ./util/*.cpp)
+LIBOBJECTS := $(addsuffix .o, $(basename $(LIBCFILES)) $(basename $(LIBCPPFILES)))
+
+......
+
+#利用Makefile的先后顺序，把PROTOOBJECTS放在LIBOBJECTS前面，让proto先编译
+$(TARGET):$(PROTOOBJECTS) $(LIBOBJECTS)
+    $(QUIET_LINK)$(CXX) -shared -fPIC -o $(TARGET) $^ $(LIBS)
+
+```
+
+
+## 扩展阅读
+
+[一种自动反射消息类型的 Google Protobuf 网络传输方案](http://blog.csdn.net/solstice/article/details/6300108)
+[self-describing message](https://developers.google.com/protocol-buffers/docs/techniques?hl=zh-CN#self-description)
+
+
+## 尾声
+使用方法就讲解到这里，我想我需要把阅读`protobuf`源代码的任务作为我的2016年度计划当中去。
