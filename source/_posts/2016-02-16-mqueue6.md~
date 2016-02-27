@@ -204,6 +204,8 @@ class ShmAllocator {
 
 ```
 
+有关管理内存的设计，我的前期设计就是头部保存节点的数量，节点的数据结构就是非常简单的数组，但是这样一来遍历所有的节点很耗时，我后期打算将它改为红黑树。
+
 管理内存的代码：
 ```
 class ManagerMem {
@@ -276,3 +278,6 @@ class ManagerMem {
 
 
 测试文件[shm_server.cpp](https://github.com/adairjun/MQueue/blob/master/gtest/shm_server.cpp)和[shm_client.cpp](https://github.com/adairjun/MQueue/blob/master/gtest/shm_server.cpp)，先启动`shm_server`，再启动`shm_client`。
+
+## 《消息队列与共享内存》系列文章总结：
+我的上个系列的文章[《socket连接池SocketPool分析》系列](http://xiongjun.info/categories/SocketPoll/) 算是对[《UNPv1》](http://book.douban.com/subject/1500149/)的复习，[这个系列的文章](http://xiongjun.info/categories/MessageQueue/) 就是对[UNPv2](http://book.douban.com/subject/4118577/)的复习。在博文视点的传世经典书丛的出版说明当中有这样一句话：孔子云：“取乎其上，得乎其中；取乎其中，得乎其下；取乎其下，则无所得矣。” Richard Stevens 大神何其高明，他的书当然是上上之选，但是我学习期间所写的博客也难免有疏漏之处。这两本书应该放在我的案头，时时刻刻准备重读。

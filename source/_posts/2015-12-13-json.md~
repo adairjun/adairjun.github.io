@@ -18,7 +18,7 @@ sudo apt-get install libboost-all-dev
 =========================== 2015年12月13日 ========================================
 
 
-解析`json`由于没有`attribute`，相比解析`xml`少了很多繁文缛节。把这篇博客和我上一篇博客《使用boost::property_tree解析xml与json (二):parse_xml设计》对比起来看理解起来会很容易。
+解析`json`由于没有`attribute`，相比解析`xml`少了很多繁文缛节。把这篇博客和我上一篇博客[《使用boost::property_tree解析xml与json (二):parse_xml设计》]()对比起来看理解起来会很容易。
 
 ## 想法
 解析`json`，我觉得有以下几种情况：
@@ -451,13 +451,13 @@ class ParseJsonObj {
 };
 
 typedef boost::shared_ptr<ParseJsonObj> ParseJsonObjPtr;
-#endif /* MQPOOL_INCLUDE_PARSE_JSON_H */
+#endif /* MQUEUE_INCLUDE_PARSE_JSON_H */
 ```
 
 ## `parse_json.cpp`
 
 ```
-#include "MQPool/parse_json.h"
+#include "MQueue/parse_json.h"
 #include <boost/property_tree/json_parser.hpp>
 
 
