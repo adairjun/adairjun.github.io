@@ -13,9 +13,11 @@ tags: hexo
 
 ## 创建github pages
 
-### 首先需要在自己的github上创建一个名为username.github.io的仓库(这里假设已经申请了github账号).比如我的github的账号名为adairjun，那么我就需要创建adairjun.github.io这个名称的github仓库.
+### 创建一个名为username.github.io的仓库
 
-### 接下来要做的工作是在命令行当中把这个仓库clone下来.
+首先需要在自己的github上创建一个名为username.github.io的仓库(这里假设已经申请了github账号).比如我的github的账号名为adairjun，那么我就需要创建adairjun.github.io这个名称的github仓库.
+
+### 在命令行当中把这个仓库clone下来.
 
 在clone之前需要配置一下ssh的秘钥，避免每次都输入密码.
 
@@ -134,7 +136,7 @@ $ hexo server
 ``` 
 INFO Hexo is running at http://0.0.0.0:4000/. Press Ctrl+C to stop.
 ```
-在浏览器当中访问http://0.0.0.0:4000/,可以看见Hexo的效果。
+在浏览器当中访问![http://0.0.0.0:4000/](http://0.0.0.0:4000/),可以看见Hexo的效果。
 现在的问题是，blog目录是作为博客的服务器地址，而我们想把github配置成我们的服务器地址，所以下一步就是部署到github上
 
 注意:
@@ -325,5 +327,8 @@ index:
 在这里推荐一个chrome的插件：[围脖是个好图床](https://chrome.google.com/webstore/detail/%E5%9B%B4%E8%84%96%E6%98%AF%E4%B8%AA%E5%A5%BD%E5%9B%BE%E5%BA%8A/pngmcllbdfgmhdgnnpfaciaolgbjplhe?hl=en-US),我都是用这个插件来把本地照片上传，然后在博客当中使用在线图片的。
 
 注意一点，使用这个插件之前需要自己先登陆网页版微博，否则图片是上传不上去的。这里吐槽一下开发者，这种情况应该抛出一个警告，让用户知道自己微博没有登陆。
+
+## 友情连接
+[如何利用GitHub Pages和Hexo快速搭建个人博客](http://sunwhut.com/2015/10/30/buildBlog/?hmsr=toutiao.io&utm_medium=toutiao.io&utm_source=toutiao.io)
 
 
