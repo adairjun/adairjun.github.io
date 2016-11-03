@@ -1,0 +1,664 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>socket连接池SocketPool分析(七):server连接池与client连接池 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="server连接池：我在 第一篇文章socket连接池SocketPool分析(一): 概述 当中说了，服务器端有成熟的one loop per thread模型来提供高并发，这点可以仔细阅读陈硕老师的书《Linux多线程服务端编程》，server端使用socket连接池是没有什么意义的。所以我在这里就不贴代码了，避免占用空间，有兴趣的请访问server连接池的github地址
+client连接池">
+<meta property="og:type" content="article">
+<meta property="og:title" content="socket连接池SocketPool分析(七):server连接池与client连接池">
+<meta property="og:url" content="http://xiongjun.info/2015/12/08/socket7/index.html">
+<meta property="og:site_name" content="Adair's Home">
+<meta property="og:description" content="server连接池：我在 第一篇文章socket连接池SocketPool分析(一): 概述 当中说了，服务器端有成熟的one loop per thread模型来提供高并发，这点可以仔细阅读陈硕老师的书《Linux多线程服务端编程》，server端使用socket连接池是没有什么意义的。所以我在这里就不贴代码了，避免占用空间，有兴趣的请访问server连接池的github地址
+client连接池">
+<meta property="og:updated_time" content="2016-11-03T14:29:20.555Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="socket连接池SocketPool分析(七):server连接池与client连接池">
+<meta name="twitter:description" content="server连接池：我在 第一篇文章socket连接池SocketPool分析(一): 概述 当中说了，服务器端有成熟的one loop per thread模型来提供高并发，这点可以仔细阅读陈硕老师的书《Linux多线程服务端编程》，server端使用socket连接池是没有什么意义的。所以我在这里就不贴代码了，避免占用空间，有兴趣的请访问server连接池的github地址
+client连接池">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/08/socket7/" title="socket连接池SocketPool分析(七):server连接池与client连接池" itemprop="url">socket连接池SocketPool分析(七):server连接池与client连接池</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-08T14:42:50.000Z" itemprop="datePublished"> 发表于 2015-12-08</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#server连接池："><span class="toc-number">1.</span> <span class="toc-text">server连接池：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#client连接池："><span class="toc-number">2.</span> <span class="toc-text">client连接池：</span></a></li></ol>
+		
+		</div>
+		
+		<h2 id="server连接池："><a href="#server连接池：" class="headerlink" title="server连接池："></a>server连接池：</h2><p>我在 第一篇文章socket连接池SocketPool分析(一): 概述 当中说了，服务器端有成熟的one loop per thread模型来提供高并发，这点可以仔细阅读陈硕老师的书<a href="http://book.douban.com/subject/20471211/" target="_blank" rel="external">《Linux多线程服务端编程》</a>，server端使用socket连接池是没有什么意义的。所以我在这里就不贴代码了，避免占用空间，有兴趣的请访问<a href="https://github.com/adairjun/SocketPool/blob/master/util/server_connection_pool.cpp" target="_blank" rel="external">server连接池的github地址</a></p>
+<h2 id="client连接池："><a href="#client连接池：" class="headerlink" title="client连接池："></a>client连接池：</h2><p>池里面主要的无非就是选择存储数据的数据结构。<br>必须有的函数也就这5个：</p>
+<ul>
+<li>构造函数：初始化池，将数据全放入池当中（也有的设计把这个独立出一个函数）</li>
+<li>析构函数：将池中的数据依照次序释放给操作系统，最后将池清空</li>
+<li>Dump函数：把池中的所有数据都打印出来</li>
+<li>GetConnection函数：从池当中获取数据</li>
+<li>ReleaseConnection函数：释放数据还给池</li>
+</ul>
+<p>这里还加上了判断池是否为空的函数。<br>我的<a href="http://blog.csdn.net/u014120684/article/details/48754039" target="_blank" rel="external">数据库连接池DBPool的设计</a>也和这个是一样的。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div><div class="line">126</div><div class="line">127</div><div class="line">128</div><div class="line">129</div><div class="line">130</div><div class="line">131</div><div class="line">132</div><div class="line">133</div><div class="line">134</div><div class="line">135</div><div class="line">136</div><div class="line">137</div><div class="line">138</div><div class="line">139</div><div class="line">140</div><div class="line">141</div><div class="line">142</div><div class="line">143</div><div class="line">144</div><div class="line">145</div><div class="line">146</div><div class="line">147</div><div class="line">148</div></pre></td><td class="code"><pre><div class="line">#include &quot;SocketPool/client_connection_pool.h&quot;</div><div class="line">#include &lt;iostream&gt;</div><div class="line">#include &lt;stdlib.h&gt;</div><div class="line">#include &lt;boost/property_tree/ptree.hpp&gt;</div><div class="line">#include &lt;boost/property_tree/xml_parser.hpp&gt;</div><div class="line">#include &lt;boost/property_tree/json_parser.hpp&gt;</div><div class="line">#include &lt;boost/typeof/typeof.hpp&gt;</div><div class="line">#include &lt;boost/foreach.hpp&gt;</div><div class="line">#include &lt;boost/lexical_cast.hpp&gt;</div><div class="line"></div><div class="line">using std::cout;</div><div class="line">using std::endl;</div><div class="line"></div><div class="line">ClientPool::ClientPool() &#123;</div><div class="line">  //这里我使用boost来解析xml和json配置文件,也可以使用rapidxml或者rapidjson</div><div class="line">  // 从配置文件socket.xml当中读入mysql的ip, 用户, 密码, 数据库名称,	</div><div class="line">  boost::property_tree::ptree pt;	</div><div class="line">  const char* xml_path = &quot;../config/socket.xml&quot;;	</div><div class="line">  boost::property_tree::read_xml(xml_path, pt);</div><div class="line">  </div><div class="line">  //client_map</div><div class="line">  BOOST_AUTO(childClient, pt.get_child(&quot;Config.Client&quot;));</div><div class="line">  for (BOOST_AUTO(pos, childClient.begin()); pos!= childClient.end(); ++pos) &#123;</div><div class="line">    BOOST_AUTO(nextchild, pos-&gt;second.get_child(&quot;&quot;));</div><div class="line">    for (BOOST_AUTO(nextpos, nextchild.begin()); nextpos!= nextchild.end(); ++nextpos) &#123;</div><div class="line">  	  if (nextpos-&gt;first == &quot;IP&quot;) clientConnectHost_ = nextpos-&gt;second.data();</div><div class="line">  	  if (nextpos-&gt;first == &quot;Port&quot;) clientConnectPort_ = boost::lexical_cast&lt;int&gt;(nextpos-&gt;second.data());</div><div class="line">  	  if (nextpos-&gt;first == &quot;max_connections&quot;) clientPoolSize_ = boost::lexical_cast&lt;int&gt;(nextpos-&gt;second.data());</div><div class="line">    &#125;</div><div class="line">    // 构造函数的作用就是根据poolSize的大小来构造多个映射</div><div class="line">    // 每个映射的连接都是同样的host,port,backlog</div><div class="line">    </div><div class="line">    for (int i=0; i&lt;clientPoolSize_; ++i) &#123;</div><div class="line">      SocketObjPtr conn(new SocketObj(clientConnectHost_, clientConnectPort_));</div><div class="line">      //只有server启动了,client的connect才会成功</div><div class="line">      if (conn-&gt;Connect()) &#123;</div><div class="line">        char stringPort[10];</div><div class="line">        snprintf(stringPort, sizeof(stringPort), &quot;%d&quot;, clientConnectPort_);</div><div class="line">        string key = clientConnectHost_ + &quot;###&quot; + stringPort;</div><div class="line">        client_map.insert(make_pair(key, conn));</div><div class="line">      &#125; else &#123;</div><div class="line">    	strErrorMessage_ = conn-&gt;ErrorMessage();</div><div class="line">      &#125;</div><div class="line">    &#125;</div><div class="line">  &#125;</div><div class="line"></div><div class="line">  /**</div><div class="line">   * 由于json当中使用数组来保存Connection,这里不能通用代码</div><div class="line">   * 这段注释的代码是读取json配置文件的</div><div class="line">  const char* json_path = &quot;../config/socket.json&quot;;</div><div class="line">  boost::property_tree::read_json(json_path, pt);</div><div class="line"></div><div class="line">  //client_map</div><div class="line">  BOOST_AUTO(childClient, pt.get_child(&quot;Config.Client&quot;));</div><div class="line">  for (BOOST_AUTO(pos, childClient.begin()); pos!= childClient.end(); ++pos) &#123;</div><div class="line">    BOOST_FOREACH(boost::property_tree::ptree::value_type &amp;v, pos-&gt;second.get_child(&quot;&quot;)) &#123;</div><div class="line">      BOOST_AUTO(nextchild, v.second.get_child(&quot;&quot;));</div><div class="line">      for (BOOST_AUTO(nextpos, nextchild.begin()); nextpos!= nextchild.end(); ++nextpos) &#123;</div><div class="line">  	    if (nextpos-&gt;first == &quot;IP&quot;) clientConnectHost_ = nextpos-&gt;second.data();</div><div class="line">  	    if (nextpos-&gt;first == &quot;Port&quot;) clientConnectPort_ = boost::lexical_cast&lt;int&gt;(nextpos-&gt;second.data());</div><div class="line">  	    if (nextpos-&gt;first == &quot;max_connections&quot;) clientPoolSize_ = boost::lexical_cast&lt;int&gt;(nextpos-&gt;second.data());</div><div class="line">      &#125;</div><div class="line">      for (int i=0; i&lt;clientPoolSize_; ++i) &#123;</div><div class="line">        SocketObjPtr conn(new SocketObj(clientConnectHost_, clientConnectPort_));</div><div class="line">        //只有server启动了,client的connect才会成功</div><div class="line">        if (conn-&gt;Connect()) &#123;</div><div class="line">          char stringPort[10];</div><div class="line">          snprintf(stringPort, sizeof(stringPort), &quot;%d&quot;, clientConnectPort_);</div><div class="line">          string key = clientConnectHost_ + &quot;###&quot; + stringPort;</div><div class="line">          client_map.insert(make_pair(key, conn));</div><div class="line">        &#125; else &#123;</div><div class="line">      	  strErrorMessage_ = conn-&gt;ErrorMessage();</div><div class="line">        &#125;</div><div class="line">      &#125;</div><div class="line">    &#125;</div><div class="line">  &#125;</div><div class="line">  */</div><div class="line">&#125;</div><div class="line">  </div><div class="line">ClientPool::~ClientPool() &#123;</div><div class="line">  //析构函数做的工作是轮询map,让每个连接都close掉</div><div class="line">  //再close掉client</div><div class="line">  for (multimap&lt;string, SocketObjPtr&gt;::iterator sIt = client_map.begin(); sIt != client_map.end(); ++sIt) &#123;</div><div class="line">    sIt-&gt;second-&gt;Close();</div><div class="line">  &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line">/**</div><div class="line"> * Dump函数,专业debug30年!</div><div class="line"> */</div><div class="line">void ClientPool::Dump() const &#123;</div><div class="line">  printf(&quot;\n=====ClientPool Dump START ========== \n&quot;);</div><div class="line">  printf(&quot;clientConnectHost_=%s &quot;, clientConnectHost_.c_str());</div><div class="line">  printf(&quot;clientConnectPort_=%d &quot;, clientConnectPort_);</div><div class="line">  printf(&quot;clientPoolSize_=%d &quot;, clientPoolSize_);</div><div class="line">  printf(&quot;strErrorMessage_=%s\n &quot;, strErrorMessage_.c_str());</div><div class="line">  int count = 0;</div><div class="line">  for (auto it = client_map.begin(); it!=client_map.end(); ++it) &#123;</div><div class="line">    printf(&quot;count==%d &quot;, count);</div><div class="line">    it-&gt;second-&gt;Dump();</div><div class="line">    ++count;</div><div class="line">  &#125;</div><div class="line">  printf(&quot;\n===ClientPool DUMP END ============\n&quot;);</div><div class="line">&#125;</div><div class="line"></div><div class="line">bool ClientPool::Empty() const &#123;</div><div class="line">  return client_map.empty();</div><div class="line">&#125;</div><div class="line"></div><div class="line">/**</div><div class="line"> * 从map当中选取一个连接</div><div class="line"> * host和port是筛选的端口号</div><div class="line"> */</div><div class="line">SocketObjPtr ClientPool::GetConnection(string host, unsigned port) &#123;</div><div class="line">  // get connection operation</div><div class="line">  unique_lock&lt;mutex&gt; lk(resource_mutex);</div><div class="line">  char stringPort[10];</div><div class="line">  snprintf(stringPort, sizeof(stringPort), &quot;%d&quot;, port);</div><div class="line">  string key = host + &quot;###&quot; + stringPort;</div><div class="line">  multimap&lt;string, SocketObjPtr&gt;::iterator sIt = client_map.find(key);</div><div class="line">  if (sIt != client_map.end()) &#123;</div><div class="line">    SocketObjPtr ret = sIt-&gt;second;</div><div class="line">    client_map.erase(sIt);</div><div class="line">    return ret;</div><div class="line">  &#125;</div><div class="line">&#125;</div><div class="line">  </div><div class="line">/**</div><div class="line"> * 释放特定的连接,就是把SocketObjPtr放回到list当中</div><div class="line"> * 其实严格地来说这个函数名字不应该叫做释放,而是插入,因为除了插入从池当中取出来的连接之外</div><div class="line"> * 用户还能插入构造的连接,但是这样做没有意义</div><div class="line"> */</div><div class="line">bool ClientPool::ReleaseConnection(SocketObjPtr conn) &#123;</div><div class="line">  unique_lock&lt;mutex&gt; lk(resource_mutex);</div><div class="line">  pair&lt;string, int&gt; peerPair= conn-&gt;GetPeer();</div><div class="line">  char stringPort[10];</div><div class="line">  snprintf(stringPort, sizeof(stringPort), &quot;%d&quot;, peerPair.second);</div><div class="line">  string key = peerPair.first + &quot;###&quot; + stringPort;</div><div class="line">  client_map.insert(make_pair(key, conn));</div><div class="line">  return true;</div><div class="line">&#125;</div><div class="line"></div><div class="line">/**</div><div class="line"> * 构造函数创建poolsize个连接错误时候用来打印错误信息</div><div class="line"> */</div><div class="line">string ClientPool::ErrorMessage() const &#123;</div><div class="line">  return strErrorMessage_; </div><div class="line">&#125;</div></pre></td></tr></table></figure>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/SocketPoll/">SocketPoll</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/socket/">socket</a><a href="/tags/SocketPoll/">SocketPoll</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/08/socket7/" data-title="socket连接池SocketPool分析(七):server连接池与client连接池 | Adair&#39;s Home" data-tsina="null" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/08/socket8/" title="socket连接池SocketPool分析(八):并发服务器">
+  <strong>上一篇：</strong><br/>
+  <span>
+  socket连接池SocketPool分析(八):并发服务器</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/08/socket6/"  title="socket连接池SocketPool分析(六)：有意思的socket">
+ <strong>下一篇：</strong><br/> 
+ <span>socket连接池SocketPool分析(六)：有意思的socket
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#server连接池："><span class="toc-number">1.</span> <span class="toc-text">server连接池：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#client连接池："><span class="toc-number">2.</span> <span class="toc-text">client连接池：</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketObj/" title="SocketObj">SocketObj<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/C/" title="C++">C++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IO多路复用/" title="IO多路复用">IO多路复用<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/select/" title="select">select<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO多路复用/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/三次握手/" style="font-size: 10px;">三次握手</a> <a href="/tags/历程/" style="font-size: 13.33px;">历程</a> <a href="/tags/反射/" style="font-size: 10px;">反射</a> <a href="/tags/四次挥手/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/并发服务器/" style="font-size: 10px;">并发服务器</a> <a href="/tags/库/" style="font-size: 10px;">库</a> <a href="/tags/正则表达式/" style="font-size: 10px;">正则表达式</a> <a href="/tags/编译/" style="font-size: 10px;">编译</a> <a href="/tags/连接/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=null&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2016 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

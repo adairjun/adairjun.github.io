@@ -1,0 +1,688 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>使用boost::property_tree解析xml与json (三):parse_json设计 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="请注意，这段代码只能运行在boost的版本比较高的情况下。我的ubuntu 14.04LTS的boost版本是1.54，所以能编译通过，但是今天我在我的centos 6.5上编译通不过，因为我的centos 6.5的boost版本是1.41。我在centos 6.5下是用yum安装boost的命令是12yum -y groupinstall &amp;quot;Development Tools&amp;quo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用boost::property_tree解析xml与json (三):parse_json设计">
+<meta property="og:url" content="http://xiongjun.info/2015/12/13/json/index.html">
+<meta property="og:site_name" content="Adair's Home">
+<meta property="og:description" content="请注意，这段代码只能运行在boost的版本比较高的情况下。我的ubuntu 14.04LTS的boost版本是1.54，所以能编译通过，但是今天我在我的centos 6.5上编译通不过，因为我的centos 6.5的boost版本是1.41。我在centos 6.5下是用yum安装boost的命令是12yum -y groupinstall &amp;quot;Development Tools&amp;quo">
+<meta property="og:updated_time" content="2016-11-03T14:29:20.563Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="使用boost::property_tree解析xml与json (三):parse_json设计">
+<meta name="twitter:description" content="请注意，这段代码只能运行在boost的版本比较高的情况下。我的ubuntu 14.04LTS的boost版本是1.54，所以能编译通过，但是今天我在我的centos 6.5上编译通不过，因为我的centos 6.5的boost版本是1.41。我在centos 6.5下是用yum安装boost的命令是12yum -y groupinstall &amp;quot;Development Tools&amp;quo">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/13/json/" title="使用boost::property_tree解析xml与json (三):parse_json设计" itemprop="url">使用boost::property_tree解析xml与json (三):parse_json设计</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-12T17:02:13.000Z" itemprop="datePublished"> 发表于 2015-12-13</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#想法"><span class="toc-number">1.</span> <span class="toc-text">想法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#根据json的key直接获取value"><span class="toc-number">1.1.</span> <span class="toc-text">根据json的key直接获取value</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#获取一个json下所有的key-value"><span class="toc-number">1.2.</span> <span class="toc-text">获取一个json下所有的key-value</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#获取json的数组"><span class="toc-number">1.3.</span> <span class="toc-text">获取json的数组</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#插入数据的操作"><span class="toc-number">2.</span> <span class="toc-text">插入数据的操作</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#插入一个key-value"><span class="toc-number">2.1.</span> <span class="toc-text">插入一个key-value</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#插入一个map"><span class="toc-number">2.2.</span> <span class="toc-text">插入一个map</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#插入一个数组"><span class="toc-number">2.3.</span> <span class="toc-text">插入一个数组</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#保存结果"><span class="toc-number">2.4.</span> <span class="toc-text">保存结果</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#我的测试详情请访问test-json-cpp"><span class="toc-number">3.</span> <span class="toc-text">我的测试详情请访问test_json.cpp</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#贴上完整的源代码："><span class="toc-number">4.</span> <span class="toc-text">贴上完整的源代码：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#parse-json-h"><span class="toc-number">5.</span> <span class="toc-text">parse_json.h</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#parse-json-cpp"><span class="toc-number">6.</span> <span class="toc-text">parse_json.cpp</span></a></li></ol>
+		
+		</div>
+		
+		<blockquote>
+<p>请注意，这段代码只能运行在<code>boost</code>的版本比较高的情况下。我的<code>ubuntu 14.04LTS</code>的<code>boost</code>版本是<code>1.54</code>，所以能编译通过，但是今天我在我的<code>centos 6.5</code>上编译通不过，因为我的<code>centos 6.5</code>的<code>boost</code>版本是<code>1.41</code>。我在<code>centos 6.5</code>下是用<code>yum</code>安装<code>boost</code>的命令是<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">yum -y groupinstall &quot;Development Tools&quot;</div><div class="line">yum -y install boost-*</div></pre></td></tr></table></figure></p>
+</blockquote>
+<p>然而这个<code>yum -y install boost-*</code>在我的<code>zsh</code>环境下执行不了，我只好切换到<code>bash</code>执行。<code>boost</code>安装路劲是<code>/usr/include/boost</code>，然后有一个专门的<code>version.hpp</code>是显示<code>boost</code>版本的，这个时候我查看到我用<code>yum</code>安装的<code>boost</code>是<code>1.41</code>版本。随后我重新下载了<code>boost</code>的源代码，使用<code>b2</code>安装了最新版。不得不说<code>centos</code>的软件更新速度真是慢。同样是安装，我的<code>Ubuntu 14.04LTS</code>用的是<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">sudo apt-get install libboost-all-dev</div></pre></td></tr></table></figure></p>
+<p>安装的<code>boost</code>就是<code>1.54</code>版本。</p>
+<p>=========================== 2015年12月13日 ========================================</p>
+<p>解析<code>json</code>由于没有<code>attribute</code>，相比解析<code>xml</code>少了很多繁文缛节。把这篇博客和我上一篇博客<a href="http://xiongjun.info/2015/12/13/xml2/">《使用boost::property_tree解析xml与json (二):parse_xml设计》</a>对比起来看理解起来会很容易。</p>
+<h2 id="想法"><a href="#想法" class="headerlink" title="想法"></a>想法</h2><p>解析<code>json</code>，我觉得有以下几种情况：</p>
+<h3 id="根据json的key直接获取value"><a href="#根据json的key直接获取value" class="headerlink" title="根据json的key直接获取value"></a>根据<code>json</code>的<code>key</code>直接获取<code>value</code></h3><p>接口是这样子的：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">string GetChildData(const string&amp; path);</div></pre></td></tr></table></figure></p>
+<p>比如说这样的一个<code>json</code>：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">&#123; </div><div class="line">  &quot;root&quot;:</div><div class="line">  &#123; </div><div class="line">    &quot;child&quot;:</div><div class="line">    &#123; </div><div class="line">      &quot;a&quot;: &quot;1&quot;,</div><div class="line">      &quot;b&quot;: &quot;2&quot; </div><div class="line">     &#125;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>使用：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">pt.GetChildData(&quot;root.child.a&quot;)</div></pre></td></tr></table></figure></p>
+<p>就能获取到<code>a</code>的值。</p>
+<h3 id="获取一个json下所有的key-value"><a href="#获取一个json下所有的key-value" class="headerlink" title="获取一个json下所有的key-value"></a>获取一个<code>json</code>下所有的<code>key-value</code></h3><p>在上面的例子当中，就是获取<code>root.child</code>下面的<code>a</code>和<code>b</code>。</p>
+<p>接口为：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">map&lt;string, string&gt; GetChildDataMap(const string&amp; path);</div></pre></td></tr></table></figure></p>
+<p>由于<code>json</code>的格式都是<code>key-value</code>型，使用<code>map</code>简直是最适合不过了。唯一需要注意的就是同一个元素当中不能有相同的<code>key</code>，否则写到<code>map</code>当中会覆盖掉原来的值，这种情况我觉的大可不必担心，因为在写<code>json</code>配置文件的时候自然会考虑到不能写重复的<code>key</code>值，所以我在这里用的是<code>map</code>而不是<code>mutilmap</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">pt.GetChildData(&quot;root.child&quot;)</div></pre></td></tr></table></figure>
+<h3 id="获取json的数组"><a href="#获取json的数组" class="headerlink" title="获取json的数组"></a>获取<code>json</code>的数组</h3><p>接口格式是这样：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">vector&lt;map&lt;string, string&gt; &gt; GetChildDataArray(const string&amp; path);</div></pre></td></tr></table></figure></p>
+<p>如果想要获取<code>child</code>这个数组的话：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">&#123; </div><div class="line">  &quot;root&quot;:</div><div class="line">  &#123; </div><div class="line">    &quot;child&quot;:</div><div class="line">    [</div><div class="line">      &#123; </div><div class="line">        &quot;a&quot;: &quot;1&quot;,</div><div class="line">        &quot;b&quot;: &quot;2&quot; </div><div class="line">      &#125;,</div><div class="line">      &#123; </div><div class="line">        &quot;a&quot;: &quot;1&quot;,</div><div class="line">        &quot;b&quot;: &quot;2&quot; </div><div class="line">      &#125;</div><div class="line">    ]</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>使用方法为<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">pt.GetChildDataArray(&quot;root.child&quot;)</div></pre></td></tr></table></figure></p>
+<p>刚刚好<code>child</code>这个数组的每一个元素都没有名字，<code>vector</code>也不保存名字。而数组的每个元素当中的<code>key-value</code>刚刚好就是一个<code>pair</code>。</p>
+<h2 id="插入数据的操作"><a href="#插入数据的操作" class="headerlink" title="插入数据的操作"></a>插入数据的操作</h2><h3 id="插入一个key-value"><a href="#插入一个key-value" class="headerlink" title="插入一个key-value"></a>插入一个<code>key-value</code></h3><p>使用<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">void PutChildData(const string&amp; key, const string&amp; value);</div></pre></td></tr></table></figure></p>
+<p>比如要在<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">&#123; </div><div class="line">  &quot;root&quot;:</div><div class="line">  &#123; </div><div class="line">    &quot;child&quot;:</div><div class="line">    &#123; </div><div class="line">      &quot;a&quot;: &quot;1&quot;,</div><div class="line">      &quot;b&quot;: &quot;2&quot; </div><div class="line">     &#125;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>当中插入一行<code>key-value</code>,就可以用这个接口<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">pt.PutChildData(&quot;testput&quot;, &quot;testput&quot;)</div></pre></td></tr></table></figure></p>
+<p>最后得到：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">&#123; </div><div class="line">  &quot;root&quot;:</div><div class="line">  &#123; </div><div class="line">    &quot;child&quot;:</div><div class="line">    &#123; </div><div class="line">      &quot;a&quot;: &quot;1&quot;,</div><div class="line">      &quot;b&quot;: &quot;2&quot; </div><div class="line">     &#125;</div><div class="line">  &#125;，</div><div class="line">  &quot;testput&quot;: &quot;testput&quot;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>这个接口当中封装的<code>property_tree</code>方法会自动添加逗号。</p>
+<h3 id="插入一个map"><a href="#插入一个map" class="headerlink" title="插入一个map"></a>插入一个<code>map</code></h3><p>与上面的<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">map&lt;string, string&gt; GetChildDataMap(const string&amp; path);</div></pre></td></tr></table></figure></p>
+<p>相对应的就是这个接口：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">void PutChildDataMap(const string&amp; key, const map&lt;string, string&gt;&amp; key_value_map);</div></pre></td></tr></table></figure></p>
+<p>比如要在当中加入一个和<code>child</code>相同的<code>map</code>：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">&#123; </div><div class="line">  &quot;root&quot;:</div><div class="line">  &#123; </div><div class="line">    &quot;child&quot;:</div><div class="line">    &#123; </div><div class="line">      &quot;a&quot;: &quot;1&quot;,</div><div class="line">      &quot;b&quot;: &quot;2&quot; </div><div class="line">     &#125;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>使用方法：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">myMap.insert(make_pair(&quot;a&quot;, &quot;1&quot;))；</div><div class="line">myMap.insert(make_pair(&quot;b&quot;, &quot;2&quot;))；</div><div class="line">PutChildData(&quot;root.newchild&quot;, myMap)；</div></pre></td></tr></table></figure></p>
+<p>运行结果为：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">&#123; </div><div class="line">  &quot;root&quot;:</div><div class="line">  &#123; </div><div class="line">    &quot;child&quot;:</div><div class="line">    &#123; </div><div class="line">      &quot;a&quot;: &quot;1&quot;,</div><div class="line">      &quot;b&quot;: &quot;2&quot; </div><div class="line">     &#125;,</div><div class="line">    &quot;newchild&quot;:</div><div class="line">    &#123; </div><div class="line">      &quot;a&quot;: &quot;1&quot;,</div><div class="line">      &quot;b&quot;: &quot;2&quot; </div><div class="line">     &#125;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<h3 id="插入一个数组"><a href="#插入一个数组" class="headerlink" title="插入一个数组"></a>插入一个数组</h3><p>同样的和上面的<code>get</code>接口相对应的<code>put</code>接口：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">void PutChildDataArray(const string&amp; key, const vector&lt;map&lt;string, string&gt; &gt;&amp; array_list);</div></pre></td></tr></table></figure></p>
+<p>比如对这个<code>json</code>进行操作：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">&#123; </div><div class="line">  &quot;root&quot;:</div><div class="line">  &#123; </div><div class="line">    &quot;child&quot;:</div><div class="line">    [</div><div class="line">    &#123; </div><div class="line">      &quot;a&quot;: &quot;1&quot;,</div><div class="line">      &quot;b&quot;: &quot;2&quot; </div><div class="line">     &#125;,</div><div class="line">     &#123; </div><div class="line">      &quot;a&quot;: &quot;1&quot;,</div><div class="line">      &quot;b&quot;: &quot;2&quot; </div><div class="line">     &#125;</div><div class="line">     ]</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>使用方法：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">myMap.insert(make_pair(&quot;a&quot;, &quot;1&quot;));</div><div class="line">myMap.insert(make_pair(&quot;b&quot;, &quot;2&quot;));</div><div class="line">yourMap.insert(make_pair(&quot;a&quot;, &quot;1&quot;));</div><div class="line">yourMap.insert(make_pair(&quot;b&quot;, &quot;2&quot;));</div><div class="line">vector&lt;map&lt;string, string&gt; &gt; array;  </div><div class="line">array.push_back(myMap); </div><div class="line">array.push_back(yourMap);</div><div class="line">PutChildData(&quot;root.nee&quot;, array);</div></pre></td></tr></table></figure></p>
+<p>运行结果为：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line">&#123; </div><div class="line">   &quot;root&quot;:</div><div class="line">   &#123; </div><div class="line">     &quot;child&quot;:</div><div class="line">     [</div><div class="line">     &#123; </div><div class="line">       &quot;a&quot;: &quot;1&quot;,</div><div class="line">       &quot;b&quot;: &quot;2&quot; </div><div class="line">      &#125;,</div><div class="line">      &#123; </div><div class="line">       &quot;a&quot;: &quot;1&quot;,</div><div class="line">       &quot;b&quot;: &quot;2&quot; </div><div class="line">      &#125;</div><div class="line">      ],</div><div class="line">     &quot;nee&quot;:</div><div class="line">     [</div><div class="line">     &#123; </div><div class="line">       &quot;a&quot;: &quot;1&quot;,</div><div class="line">       &quot;b&quot;: &quot;2&quot; </div><div class="line">      &#125;,</div><div class="line">      &#123; </div><div class="line">       &quot;a&quot;: &quot;1&quot;,</div><div class="line">       &quot;b&quot;: &quot;2&quot; </div><div class="line">      &#125;</div><div class="line">      ]</div><div class="line">   &#125;</div><div class="line"> &#125;</div></pre></td></tr></table></figure></p>
+<h3 id="保存结果"><a href="#保存结果" class="headerlink" title="保存结果"></a>保存结果</h3><p>在对<code>json</code>进行写入之后，不要忘记调用接口<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">void SaveConfig();</div></pre></td></tr></table></figure></p>
+<p>来保存结果。<br>这个和<code>xml</code>的操作是一样的。</p>
+<h2 id="我的测试详情请访问test-json-cpp"><a href="#我的测试详情请访问test-json-cpp" class="headerlink" title="我的测试详情请访问test_json.cpp"></a>我的测试详情请访问<a href="https://github.com/adairjun/MQueue/blob/master/gtest/test_json.cpp" target="_blank" rel="external">test_json.cpp</a></h2><h2 id="贴上完整的源代码："><a href="#贴上完整的源代码：" class="headerlink" title="贴上完整的源代码："></a>贴上完整的源代码：</h2><h2 id="parse-json-h"><a href="#parse-json-h" class="headerlink" title="parse_json.h"></a><code>parse_json.h</code></h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div><div class="line">126</div><div class="line">127</div><div class="line">128</div><div class="line">129</div><div class="line">130</div><div class="line">131</div><div class="line">132</div><div class="line">133</div><div class="line">134</div><div class="line">135</div><div class="line">136</div><div class="line">137</div><div class="line">138</div><div class="line">139</div><div class="line">140</div><div class="line">141</div><div class="line">142</div><div class="line">143</div><div class="line">144</div><div class="line">145</div><div class="line">146</div><div class="line">147</div><div class="line">148</div><div class="line">149</div><div class="line">150</div><div class="line">151</div><div class="line">152</div><div class="line">153</div><div class="line">154</div><div class="line">155</div><div class="line">156</div><div class="line">157</div><div class="line">158</div><div class="line">159</div><div class="line">160</div><div class="line">161</div><div class="line">162</div><div class="line">163</div><div class="line">164</div><div class="line">165</div><div class="line">166</div><div class="line">167</div><div class="line">168</div><div class="line">169</div><div class="line">170</div><div class="line">171</div><div class="line">172</div><div class="line">173</div><div class="line">174</div><div class="line">175</div><div class="line">176</div><div class="line">177</div><div class="line">178</div><div class="line">179</div></pre></td><td class="code"><pre><div class="line">#ifndef MQUEUE_INCLUDE_PARSE_JSON_H_</div><div class="line">#define MQUEUE_INCLUDE_PARSE_JSON_H_</div><div class="line"></div><div class="line">/* 以前一直都是把解析json文件的代码放在池的构造函数当中,这里把它独立出来</div><div class="line"> *  使用boost的json解析库,也推荐使用rapidjson,</div><div class="line"> * rapidjson是仿造rapidxml写出来的,不过没有用在boost库当中</div><div class="line"> */</div><div class="line"></div><div class="line">#include &lt;string&gt;</div><div class="line">#include &lt;vector&gt;</div><div class="line">#include &lt;map&gt;</div><div class="line">#include &lt;boost/shared_ptr.hpp&gt;</div><div class="line">#include &lt;boost/property_tree/ptree.hpp&gt;</div><div class="line"></div><div class="line">using std::string;</div><div class="line">using std::vector;</div><div class="line">using std::map;</div><div class="line">using std::make_pair;</div><div class="line">using boost::property_tree::ptree;</div><div class="line"></div><div class="line">typedef boost::shared_ptr&lt;boost::property_tree::ptree&gt; ptreePtr;</div><div class="line"></div><div class="line">class ParseJsonObj &#123;</div><div class="line"> public:</div><div class="line">  explicit ParseJsonObj();</div><div class="line">  explicit ParseJsonObj(string configPath);</div><div class="line">  virtual ~ParseJsonObj();</div><div class="line">  ParseJsonObj(const ParseJsonObj&amp;) = delete;</div><div class="line">  ParseJsonObj&amp; operator=(const ParseJsonObj&amp;) = delete;</div><div class="line">  void Dump() const;</div><div class="line"></div><div class="line">  string GetConfigPath() const;</div><div class="line"></div><div class="line">  ptreePtr GetPtree() const;</div><div class="line"></div><div class="line">  /*</div><div class="line">   * GetChildData(&quot;root.child.a&quot;) will get &quot;a&quot; </div><div class="line">   * &#123; &quot;root&quot;:</div><div class="line">   *     &#123; &quot;child&quot;:</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;</div><div class="line">   *     &#125;</div><div class="line">   *  &#125;</div><div class="line">   */</div><div class="line">  string GetChildData(const string&amp; path);</div><div class="line"></div><div class="line">  /*</div><div class="line">   * GetChildData(&quot;root.child&quot;) will get &quot;a&quot; and &quot;b&quot;</div><div class="line">   * &#123; &quot;root&quot;:</div><div class="line">   *     &#123; &quot;child&quot;:</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;</div><div class="line">   *     &#125;</div><div class="line">   *  &#125;</div><div class="line">   */</div><div class="line">  map&lt;string, string&gt; GetChildDataMap(const string&amp; path);</div><div class="line"></div><div class="line">  /*</div><div class="line">   * GetChildDataArray(&quot;root.child&quot;) will get &quot;a&quot; and &quot;b&quot;</div><div class="line">   * &#123; &quot;root&quot;:</div><div class="line">   *     &#123; &quot;child&quot;:</div><div class="line">   *        [</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;,</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;</div><div class="line">   *        ]</div><div class="line">   *     &#125;</div><div class="line">   *  &#125;</div><div class="line">   */</div><div class="line">  vector&lt;map&lt;string, string&gt; &gt; GetChildDataArray(const string&amp; path);</div><div class="line"></div><div class="line">  //===========================================================</div><div class="line">  /*</div><div class="line">   * PutChildData(&quot;testput&quot;, &quot;testput&quot;) will add &quot;testput&quot; in</div><div class="line">   * &#123; &quot;root&quot;:</div><div class="line">   *     &#123; &quot;child&quot;:</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;</div><div class="line">   *     &#125;</div><div class="line">   *  &#125;</div><div class="line">   * new:</div><div class="line">   * &#123; &quot;root&quot;:</div><div class="line">   *     &#123; &quot;child&quot;:</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;</div><div class="line">   *     &#125;,</div><div class="line">   *   &quot;testput&quot;: &quot;testput&quot;</div><div class="line">   *  &#125;</div><div class="line">   */</div><div class="line">  void PutChildData(const string&amp; key, const string&amp; value);</div><div class="line"></div><div class="line">  /*</div><div class="line">   * myMap.insert(make_pair(&quot;a&quot;, &quot;1&quot;))  myMap.insert(make_pair(&quot;b&quot;, &quot;2&quot;))</div><div class="line">   * PutChildData(&quot;root.newchild&quot;, myMap) will add &quot;newchild&quot; in</div><div class="line">   * &#123; &quot;root&quot;:</div><div class="line">   *     &#123; &quot;child&quot;:</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;</div><div class="line">   *     &#125;</div><div class="line">   *  &#125;</div><div class="line">   * new:</div><div class="line">   * &#123; &quot;root&quot;:</div><div class="line">   *     &#123; &quot;child&quot;:</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;,</div><div class="line">   *        &quot;newchild&quot;:</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot;</div><div class="line">   *        &#125;</div><div class="line">   *     &#125;</div><div class="line">   *  &#125;</div><div class="line">   */</div><div class="line">  void PutChildDataMap(const string&amp; key, const map&lt;string, string&gt;&amp; key_value_map);</div><div class="line"></div><div class="line">  /*</div><div class="line">   * myMap.insert(make_pair(&quot;a&quot;, &quot;1&quot;))  myMap.insert(make_pair(&quot;b&quot;, &quot;2&quot;))</div><div class="line">   * yourMap.insert(make_pair(&quot;a&quot;, &quot;1&quot;))  yourMap.insert(make_pair(&quot;b&quot;, &quot;2&quot;))</div><div class="line">   * vector&lt;map&lt;string, string&gt; &gt; array;  array.push_back(myMap); array.push_back(yourMap);</div><div class="line">   * PutChildData(&quot;root.nee&quot;, array) will add &quot;nee&quot; in</div><div class="line">   * &#123; &quot;root&quot;:</div><div class="line">   *     &#123; &quot;child&quot;:</div><div class="line">   *        [</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;,</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;</div><div class="line">   *        ]</div><div class="line">   *     &#125;</div><div class="line">   * &#125;</div><div class="line">   * new:</div><div class="line">   * &#123; &quot;root&quot;:</div><div class="line">   *     &#123; &quot;child&quot;:</div><div class="line">   *        [</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;,</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot; </div><div class="line">   *        &#125;</div><div class="line">   *        ],</div><div class="line">   *        &quot;nee&quot;: </div><div class="line">   *        [</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot;</div><div class="line">   *        &#125;,</div><div class="line">   *        &#123; &quot;a&quot;: &quot;1&quot;,</div><div class="line">   *          &quot;b&quot;: &quot;2&quot;</div><div class="line">   *        &#125;</div><div class="line">   *        ]</div><div class="line">   *     &#125;</div><div class="line">   * &#125;</div><div class="line">   */</div><div class="line">  void PutChildDataArray(const string&amp; key, const vector&lt;map&lt;string, string&gt; &gt;&amp; array_list); </div><div class="line"></div><div class="line">  /*</div><div class="line">   * save config</div><div class="line">   */</div><div class="line">  void SaveConfig();</div><div class="line"></div><div class="line"> private:</div><div class="line">  string configPath_; </div><div class="line">  //这里不用ptree对象而用指针的意义在于如果使用ptree对象的话，构造的时候就必须完全构造这个对象</div><div class="line">  ptreePtr pt_;</div><div class="line">  //ptree* pt_;</div><div class="line">&#125;;</div><div class="line"></div><div class="line">typedef boost::shared_ptr&lt;ParseJsonObj&gt; ParseJsonObjPtr;</div><div class="line">#endif /* MQUEUE_INCLUDE_PARSE_JSON_H */</div></pre></td></tr></table></figure>
+<h2 id="parse-json-cpp"><a href="#parse-json-cpp" class="headerlink" title="parse_json.cpp"></a><code>parse_json.cpp</code></h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div></pre></td><td class="code"><pre><div class="line">#include &quot;MQueue/parse_json.h&quot;</div><div class="line">#include &lt;boost/property_tree/json_parser.hpp&gt;</div><div class="line"></div><div class="line"></div><div class="line">ParseJsonObj::ParseJsonObj() </div><div class="line">    : pt_(new ptree) &#123;</div><div class="line">    configPath_ = &quot;../config/messageQueue.json&quot;;</div><div class="line">    //pt_ = new ptree;</div><div class="line">    boost::property_tree::read_json(configPath_, *pt_);</div><div class="line">&#125;</div><div class="line"></div><div class="line">ParseJsonObj::ParseJsonObj(string configPath)</div><div class="line">    : configPath_(configPath), pt_(new ptree) &#123;</div><div class="line">	//pt_ = new ptree;</div><div class="line">	boost::property_tree::read_json(configPath_, *pt_);</div><div class="line">&#125;</div><div class="line"></div><div class="line">ParseJsonObj::~ParseJsonObj() &#123;</div><div class="line">  //delete pt_;</div><div class="line">&#125;</div><div class="line"></div><div class="line">void ParseJsonObj::Dump() const &#123;</div><div class="line">  printf(&quot;\n=====ParseJsonObj Dump START ========== \n&quot;);</div><div class="line">  printf(&quot;configPath__=%s &quot;, configPath_.c_str());</div><div class="line">  //printf(&quot;pt_=%p &quot;, pt_);</div><div class="line">  printf(&quot;\n===ParseJsonObj DUMP END ============\n&quot;);</div><div class="line">&#125;</div><div class="line"></div><div class="line">string ParseJsonObj::GetConfigPath() const &#123;</div><div class="line">  return configPath_;</div><div class="line">&#125;</div><div class="line"></div><div class="line">ptreePtr ParseJsonObj::GetPtree() const &#123;</div><div class="line">  return pt_;</div><div class="line">&#125;</div><div class="line"></div><div class="line">string ParseJsonObj::GetChildData(const string&amp; path) &#123;</div><div class="line">  return pt_-&gt;get&lt;string&gt;(path);</div><div class="line">&#125;</div><div class="line"></div><div class="line">map&lt;string, string&gt; ParseJsonObj::GetChildDataMap(const string&amp; path) &#123;</div><div class="line">  map&lt;string, string&gt; key_value_map;</div><div class="line">  </div><div class="line">  auto child = pt_-&gt;get_child(path);</div><div class="line">  for (auto pos = child.begin(); pos!= child.end(); ++pos) &#123;</div><div class="line">    key_value_map.insert(make_pair(pos-&gt;first, pos-&gt;second.data()));</div><div class="line">  &#125;</div><div class="line">  return std::move(key_value_map);</div><div class="line">&#125;</div><div class="line"></div><div class="line">vector&lt;map&lt;string, string&gt; &gt; ParseJsonObj::GetChildDataArray(const string&amp; path) &#123;</div><div class="line">  vector&lt;map&lt;string, string&gt; &gt; result_array;</div><div class="line">  map&lt;string, string&gt; key_value_map;</div><div class="line"></div><div class="line">  auto child = pt_-&gt;get_child(path);</div><div class="line">    for (ptree::value_type &amp;v : child.get_child(&quot;&quot;)) &#123;</div><div class="line">      auto nextchild = v.second.get_child(&quot;&quot;);</div><div class="line">      for (auto pos = nextchild.begin(); pos!= nextchild.end(); ++pos) &#123;</div><div class="line">        key_value_map.insert(make_pair(pos-&gt;first, pos-&gt;second.data()));        </div><div class="line">      &#125;</div><div class="line">      result_array.push_back(key_value_map);</div><div class="line">      key_value_map.clear();</div><div class="line">    &#125;</div><div class="line">  return std::move(result_array);</div><div class="line">&#125;</div><div class="line"></div><div class="line">void ParseJsonObj::PutChildData(const string&amp; key, const string&amp; value) &#123;</div><div class="line">  if(pt_ != NULL) &#123;</div><div class="line">    pt_-&gt;put(key, value);</div><div class="line">  &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line">void ParseJsonObj::PutChildDataMap(const string&amp; key, const map&lt;string, string&gt;&amp; key_value_map) &#123;</div><div class="line">  if(pt_ != NULL) &#123;</div><div class="line">    ptree child;</div><div class="line">    for (auto myPair : key_value_map) &#123;</div><div class="line">      child.put(myPair.first, myPair.second);</div><div class="line">    &#125;</div><div class="line">    pt_-&gt;add_child(key, child);</div><div class="line">  &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line">void ParseJsonObj::PutChildDataArray(const string&amp; key, const vector&lt;map&lt;string, string&gt; &gt;&amp; array_list) &#123;</div><div class="line">  if(pt_ != NULL) &#123;</div><div class="line">    ptree first;</div><div class="line">    for (auto key_value_map : array_list) &#123;</div><div class="line">      ptree second;</div><div class="line">      for (auto myPair : key_value_map) &#123;</div><div class="line">        second.put(myPair.first, myPair.second);</div><div class="line">      &#125; </div><div class="line">      first.push_back(make_pair(&quot;&quot;, second)); </div><div class="line">    &#125;</div><div class="line">    pt_-&gt;add_child(key, first);</div><div class="line">  &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line">void ParseJsonObj::SaveConfig() &#123;</div><div class="line">  if(pt_ != NULL) &#123;</div><div class="line">    boost::property_tree::write_json(configPath_, *pt_);</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/property-tree/">property_tree</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/boost/">boost</a><a href="/tags/property-tree/">property_tree</a><a href="/tags/json/">json</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/13/json/" data-title="使用boost::property_tree解析xml与json (三):parse_json设计 | Adair&#39;s Home" data-tsina="null" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/20/log/" title="自用日志库logobj">
+  <strong>上一篇：</strong><br/>
+  <span>
+  自用日志库logobj</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/13/xml2/"  title="使用boost::property_tree解析xml与json (二):parse_xml设计">
+ <strong>下一篇：</strong><br/> 
+ <span>使用boost::property_tree解析xml与json (二):parse_xml设计
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#想法"><span class="toc-number">1.</span> <span class="toc-text">想法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#根据json的key直接获取value"><span class="toc-number">1.1.</span> <span class="toc-text">根据json的key直接获取value</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#获取一个json下所有的key-value"><span class="toc-number">1.2.</span> <span class="toc-text">获取一个json下所有的key-value</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#获取json的数组"><span class="toc-number">1.3.</span> <span class="toc-text">获取json的数组</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#插入数据的操作"><span class="toc-number">2.</span> <span class="toc-text">插入数据的操作</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#插入一个key-value"><span class="toc-number">2.1.</span> <span class="toc-text">插入一个key-value</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#插入一个map"><span class="toc-number">2.2.</span> <span class="toc-text">插入一个map</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#插入一个数组"><span class="toc-number">2.3.</span> <span class="toc-text">插入一个数组</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#保存结果"><span class="toc-number">2.4.</span> <span class="toc-text">保存结果</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#我的测试详情请访问test-json-cpp"><span class="toc-number">3.</span> <span class="toc-text">我的测试详情请访问test_json.cpp</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#贴上完整的源代码："><span class="toc-number">4.</span> <span class="toc-text">贴上完整的源代码：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#parse-json-h"><span class="toc-number">5.</span> <span class="toc-text">parse_json.h</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#parse-json-cpp"><span class="toc-number">6.</span> <span class="toc-text">parse_json.cpp</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketObj/" title="SocketObj">SocketObj<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/C/" title="C++">C++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IO多路复用/" title="IO多路复用">IO多路复用<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/select/" title="select">select<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO多路复用/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/三次握手/" style="font-size: 10px;">三次握手</a> <a href="/tags/历程/" style="font-size: 13.33px;">历程</a> <a href="/tags/反射/" style="font-size: 10px;">反射</a> <a href="/tags/四次挥手/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/并发服务器/" style="font-size: 10px;">并发服务器</a> <a href="/tags/库/" style="font-size: 10px;">库</a> <a href="/tags/正则表达式/" style="font-size: 10px;">正则表达式</a> <a href="/tags/编译/" style="font-size: 10px;">编译</a> <a href="/tags/连接/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=null&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2016 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>
