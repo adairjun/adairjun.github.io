@@ -11,7 +11,7 @@ date: 2014-08-08 07:48:37
 
 ## 联系我
 
-EMAIL: adairjun@163.com
+EMAIL: xiongjun8817@outlook.com
 
 ## 时刻问自己的问题：
 我在2015年7月份面试AVD Digital Media的时候，面试官问了我一个这样的问题：“你知不知道mysql的触发器？”。
