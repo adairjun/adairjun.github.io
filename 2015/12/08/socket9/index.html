@@ -1,0 +1,691 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>socket连接池SocketPool分析(九):C10k problem | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="所谓的C10k problem指的是单台服务器要同时支持并发10K量级的连接，这些连接可能是保持存活状态的。 C10k problem的解决方法C10k problem的最大问题是：设计不够良好的程序，其性能和连接数和机器性能的关系是非线性的。一个没有考虑过C10k problem的基于select()函数的程序能在一台旧服务器上很好处理1000并发的吞吐量，但是它在2倍性能的服务器上处理不了20">
+<meta property="og:type" content="article">
+<meta property="og:title" content="socket连接池SocketPool分析(九):C10k problem">
+<meta property="og:url" content="http://xiongjun.info/2015/12/08/socket9/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="所谓的C10k problem指的是单台服务器要同时支持并发10K量级的连接，这些连接可能是保持存活状态的。 C10k problem的解决方法C10k problem的最大问题是：设计不够良好的程序，其性能和连接数和机器性能的关系是非线性的。一个没有考虑过C10k problem的基于select()函数的程序能在一台旧服务器上很好处理1000并发的吞吐量，但是它在2倍性能的服务器上处理不了20">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-12-08T14:42:58.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.092Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="socket">
+<meta property="article:tag" content="SocketPoll">
+<meta property="article:tag" content="C10k">
+<meta property="article:tag" content="C1000k">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/08/socket9/" title="socket连接池SocketPool分析(九):C10k problem" itemprop="url">socket连接池SocketPool分析(九):C10k problem</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-08T14:42:58.000Z" itemprop="datePublished"> 发表于 2015-12-08</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#C10k-problem%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95"><span class="toc-number">1.</span> <span class="toc-text">C10k problem的解决方法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Serve-one-client-with-each-thread-process-and-use-blocking-I-O"><span class="toc-number">1.1.</span> <span class="toc-text">Serve one client with each thread&#x2F;process, and use blocking I&#x2F;O</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Serve-many-clients-with-single-thread-and-use-nonblocking-I-O-and-readiness-notification"><span class="toc-number">1.2.</span> <span class="toc-text">Serve many clients with single thread, and use nonblocking I&#x2F;O and readiness notification</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Serve-many-clients-with-each-thread-and-use-nonblocking-I-O-and-readiness-notification"><span class="toc-number">1.3.</span> <span class="toc-text">Serve many clients with each thread, and use nonblocking I&#x2F;O and readiness notification</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Serve-many-clients-with-each-thread-and-use-asynchronous-I-O"><span class="toc-number">1.4.</span> <span class="toc-text">Serve many clients with each thread, and use asynchronous I&#x2F;O</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#C1000k-problem"><span class="toc-number">2.</span> <span class="toc-text">C1000k problem</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%8F%E7%A8%8B"><span class="toc-number">2.1.</span> <span class="toc-text">协程</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">参考</span></a></li></ol>
+		
+		</div>
+		
+		<p>所谓的C10k problem指的是单台服务器要同时支持并发10K量级的连接，这些连接可能是保持存活状态的。</p>
+<h2 id="C10k-problem的解决方法"><a href="#C10k-problem的解决方法" class="headerlink" title="C10k problem的解决方法"></a>C10k problem的解决方法</h2><p>C10k problem的最大问题是：设计不够良好的程序，其性能和连接数和机器性能的关系是非线性的。<br>一个没有考虑过C10k problem的基于<code>select()</code>函数的程序能在一台旧服务器上很好处理1000并发的吞吐量，但是它在2倍性能的服务器上处理不了2000并发的吞吐量。<br>因为在策略不当时候，大量操作的消耗和当前连接数n成线性关系。比如说<code>select()</code>函数的策略我的程序阻塞在<code>select()</code>上，然后<code>select()</code>函数会自己去轮询socket连接，发现socket连接有事件发生的时候，才通知我的程序，然后我的程序要加上<code>if</code>条件判断来判断一下是哪个socket触发了事件。这种策略就决定了当socket连接很多的时候，<code>select()</code>就要做更多的轮询，同时我的程序也就需要做更多的判断。也就是说当有一个socket描述符被触发的时候，2000并发的服务器所消耗的资源比1000并发的服务器要多，所以大量操作的消耗和当前连接数n才不是线性关系。</p>
+<p>我在《socket连接池SocketPool分析(八): 并发服务器》上列举了很多的并发服务器的编程方法。</p>
+<p>下面是常用的经典策略：</p>
+<h3 id="Serve-one-client-with-each-thread-process-and-use-blocking-I-O"><a href="#Serve-one-client-with-each-thread-process-and-use-blocking-I-O" class="headerlink" title="Serve one client with each thread/process, and use blocking I/O"></a>Serve one client with each thread/process, and use blocking I/O</h3><p>启动多个线程，每个线程连接一个客户端，采用阻塞I/O。这种策略很难满足高性能程序的需求，好处是实现极其简单，容易嵌入复杂的交互逻辑。如果是C10K就要创建1万个线程，那么操作系统是无法承受的。如果是采用分布式系统，维持1亿用户在线需要10万台服务器，成本巨大，也只有Facebook，Google，雅虎才有财力购买如此多的服务器。</p>
+<h3 id="Serve-many-clients-with-single-thread-and-use-nonblocking-I-O-and-readiness-notification"><a href="#Serve-many-clients-with-single-thread-and-use-nonblocking-I-O-and-readiness-notification" class="headerlink" title="Serve many clients with single thread, and use nonblocking I/O and readiness notification"></a>Serve many clients with single thread, and use nonblocking I/O and readiness notification</h3><p>单线程服务多个客户端，使用非阻塞I/O，并且是事件就绪通知。这就是reactor模式。<br>Epoll就是为了解决C10K问题而生。使用Epoll技术，使得小公司也可以玩高并发。不需要购买很多服务器，有几台服务器就可以服务大量用户。Nginx，libevent，node.js这些就是Epoll时代的产物。</p>
+<h3 id="Serve-many-clients-with-each-thread-and-use-nonblocking-I-O-and-readiness-notification"><a href="#Serve-many-clients-with-each-thread-and-use-nonblocking-I-O-and-readiness-notification" class="headerlink" title="Serve many clients with each thread, and use nonblocking I/O and readiness notification"></a>Serve many clients with each thread, and use nonblocking I/O and readiness notification</h3><p>启动多线程，每个线程服务多个客户端，使用非阻塞I/O，并且是事件就绪通知。这是one loop per thread模式。</p>
+<h3 id="Serve-many-clients-with-each-thread-and-use-asynchronous-I-O"><a href="#Serve-many-clients-with-each-thread-and-use-asynchronous-I-O" class="headerlink" title="Serve many clients with each thread, and use asynchronous I/O"></a>Serve many clients with each thread, and use asynchronous I/O</h3><p>启动多线程，每个线程服务多个客户端，使用异步I/O<br>异步I/O需要使用操作系统的异步I/O接口。linux kernel 2.6（CentOS 6.5）仅仅提供了对AIO的有限支持—仅仅支持文件系统。Windows对AIO很友好，有 IOCP 队列和 IPCP 回调两种方式。所以在linux作为操作系统的时候，还是选择one loop per thread模式。</p>
+<h2 id="C1000k-problem"><a href="#C1000k-problem" class="headerlink" title="C1000k problem"></a>C1000k problem</h2><p>随着技术的演进，epoll 已经可以较好的处理 C10K 问题，但是如果要进一步的扩展，例如支持 1000k 规模的并发连接，原有的技术就无能为力了。</p>
+<p>什么因素限制了 C1000K 问题的解决. 主要是这几点:</p>
+<ul>
+<li>操作系统能否支持百万连接?</li>
+<li>操作系统维持百万连接需要多少内存?</li>
+<li>应用程序维持百万连接需要多少内存?</li>
+<li>百万连接的吞吐量是否超过了网络限制?</li>
+</ul>
+<h3 id="协程"><a href="#协程" class="headerlink" title="协程"></a>协程</h3><p>coroutine（协程），或协作式例程。<br>线程与协同程序的主要区别在于，一个具有多线程的程序可以同时运行几个线程，而协同程序却需要彼此协作地运行。就是说，一个具有多个协同程序的程序在任何时刻只能运行一个协同程序，并且正在运行的协同程序只会在其显示地挂起时，它的执行才会暂停。</p>
+<p>协程的特点在于是一个线程执行，那和多线程比，协程有何优势？<br>最大的优势就是协程极高的执行效率。因为子程序切换不是线程切换，而是由程序自身控制，因此，没有线程切换的开销，和多线程比，线程数量越多，协程的性能优势就越明显。<br>第二大优势就是不需要多线程的锁机制，因为只有一个线程，也不存在同时写变量冲突，在协程中控制共享资源不加锁，只需要判断状态就好了，所以执行效率比多线程高很多。<br>因为协程是一个线程执行，那怎么利用多核CPU呢？最简单的方法是多进程+协程，既充分利用多核，又充分发挥协程的高效率，可获得极高的性能。</p>
+<p>由于协程的作用，没有线程的内存开销，就能够减轻上面提到的C1000k problem当中的“操作系统维持百万连接需要很大内存”的问题。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a target="_blank" rel="noopener" href="http://blog.csdn.net/goldou/article/details/2579781">C10k 问题</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.sogou.com/labs/report/1-1.pdf">搜狗实验室技术交流文档</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.csdn.net/article/2013-05-16/2815317-The-Secret-to-10M-Concurrent-Connections">千万级并发实现的秘密：内核不是解决方案，而是问题所在！</a></li>
+<li><a target="_blank" rel="noopener" href="http://rango.swoole.com/archives/381">关于C10K、异步回调、协程、同步阻塞</a></li>
+<li><a target="_blank" rel="noopener" href="http://coolshell.cn/articles/10975.html">一个“蝇量级” C 语言协程库</a></li>
+<li><a target="_blank" rel="noopener" href="http://my.oschina.net/u/90679/blog/99394">协程</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.ideawu.net/blog/archives/740.html">构建C1000K的服务器(1) – 基础</a></li>
+</ul>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/SocketPoll/">SocketPoll</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/socket/">socket</a><a href="/tags/SocketPoll/">SocketPoll</a><a href="/tags/C10k/">C10k</a><a href="/tags/C1000k/">C1000k</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/08/socket9/" data-title="socket连接池SocketPool分析(九):C10k problem | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/08/socket10/" title="socket连接池SocketPool分析(十):libevent">
+  <strong>上一篇：</strong><br/>
+  <span>
+  socket连接池SocketPool分析(十):libevent</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/08/socket8/"  title="socket连接池SocketPool分析(八):并发服务器">
+ <strong>下一篇：</strong><br/> 
+ <span>socket连接池SocketPool分析(八):并发服务器
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#C10k-problem%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95"><span class="toc-number">1.</span> <span class="toc-text">C10k problem的解决方法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Serve-one-client-with-each-thread-process-and-use-blocking-I-O"><span class="toc-number">1.1.</span> <span class="toc-text">Serve one client with each thread&#x2F;process, and use blocking I&#x2F;O</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Serve-many-clients-with-single-thread-and-use-nonblocking-I-O-and-readiness-notification"><span class="toc-number">1.2.</span> <span class="toc-text">Serve many clients with single thread, and use nonblocking I&#x2F;O and readiness notification</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Serve-many-clients-with-each-thread-and-use-nonblocking-I-O-and-readiness-notification"><span class="toc-number">1.3.</span> <span class="toc-text">Serve many clients with each thread, and use nonblocking I&#x2F;O and readiness notification</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Serve-many-clients-with-each-thread-and-use-asynchronous-I-O"><span class="toc-number">1.4.</span> <span class="toc-text">Serve many clients with each thread, and use asynchronous I&#x2F;O</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#C1000k-problem"><span class="toc-number">2.</span> <span class="toc-text">C1000k problem</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8D%8F%E7%A8%8B"><span class="toc-number">2.1.</span> <span class="toc-text">协程</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83"><span class="toc-number">3.</span> <span class="toc-text">参考</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

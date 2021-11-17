@@ -1,0 +1,821 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>消息队列与共享内存(二)：protobuf序列化消息 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="上一篇文章简单地介绍了System V的消息队列。但是如果只是简单的封装一下系统调用，这种学习方法我觉得没有任何的意义。我觉得既然说到了消息队列，那么进一步就应该谈一谈消息的结构。在上文当中消息队列的模板是： 1234struct msgbuf &amp;#123;  long mtype;  &#x2F;* message type, must be &gt; 0 *&#x2F;  char mtext[1]; &#x2F;* me">
+<meta property="og:type" content="article">
+<meta property="og:title" content="消息队列与共享内存(二)：protobuf序列化消息">
+<meta property="og:url" content="http://xiongjun.info/2016/02/16/mqueue2/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="上一篇文章简单地介绍了System V的消息队列。但是如果只是简单的封装一下系统调用，这种学习方法我觉得没有任何的意义。我觉得既然说到了消息队列，那么进一步就应该谈一谈消息的结构。在上文当中消息队列的模板是： 1234struct msgbuf &amp;#123;  long mtype;  &#x2F;* message type, must be &gt; 0 *&#x2F;  char mtext[1]; &#x2F;* me">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2016-02-16T12:26:32.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.098Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="protobuf">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2016/02/16/mqueue2/" title="消息队列与共享内存(二)：protobuf序列化消息" itemprop="url">消息队列与共享内存(二)：protobuf序列化消息</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2016-02-16T12:26:32.000Z" itemprop="datePublished"> 发表于 2016-02-16</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%A5%E9%97%A8"><span class="toc-number">1.</span> <span class="toc-text">入门</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B5%8C%E5%A5%97message"><span class="toc-number">2.</span> <span class="toc-text">嵌套message</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#extend"><span class="toc-number">3.</span> <span class="toc-text">extend</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#proto%E6%96%87%E4%BB%B6%E7%9A%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">4.</span> <span class="toc-text">proto文件的设计</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B6%88%E6%81%AF%E5%A4%B4"><span class="toc-number">4.1.</span> <span class="toc-text">消息头</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BB%B6%E4%BC%B8%E9%98%85%E8%AF%BB%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">延伸阅读：</span></a></li></ol>
+		
+		</div>
+		
+		<p>上一篇文章简单地介绍了System V的消息队列。但是如果只是简单的封装一下系统调用，这种学习方法我觉得没有任何的意义。我觉得既然说到了消息队列，那么进一步就应该谈一谈消息的结构。在上文当中消息队列的模板是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">struct msgbuf &#123;</span><br><span class="line">  long mtype;  /* message type, must be &gt; 0 */</span><br><span class="line">  char mtext[1]; /* message data */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>主要的消息体就是放在了<code>mtext</code>当中，当然长度可以自己随便设置。我接下来要谈到的消息结构就是有关消息经过<code>protobuf</code>序列化之后够放入<code>mtext</code>当中去。</p>
+<p>我自己学习使用<code>protobuf</code>的代码在这里：<a target="_blank" rel="noopener" href="https://github.com/adairjun/rapidmsg">rapidmsg</a>。</p>
+<h2 id="入门"><a href="#入门" class="headerlink" title="入门"></a>入门</h2><p>假设我在我的网络通信程序当中有这么一个需求：从客户端发送一组字符串给服务器，服务器解析这一组字符串然后按照一定的顺序排列之后返回给客户端。<br>简单的做法就是手动将组当中的字符串拼接称为一条字符串，比如字符串之间可以使用类似<code>###</code>的分隔符，然后服务器收到这条字符串之后使用<code>split</code>就可以将它解析出来。处理完之后再拼接成为一条字符串，返回给客户端。这种简单的方法缺点当然是非常明显：第一，就是这种方式只能传递字符串，如果我想要在数据中加入数字，那么服务器如何分辨这是一个数字？当然可以用个标志位来表明这是个数字。但是如果我想在传递的字符串组当中再加一个字符串组嵌套呢？那是不是又该加一个分隔符号？ 第二，安全性。如果客户端和服务器要通过外网来传递数据，谁敢用这么不安全的方式？传输的数据一眼就能看出来，没有任何加密。第三，如果传输的数据比较复杂，就像第一条说的既有数字，又有字符串，还有字符串组，那么解析的程序就要考虑很多种的情况。</p>
+<p><code>google</code>的<code>protobuf</code>就是为了方便序列化消息而开发的项目。<br>比如说我想传这么一组数据：首先是<code>string</code>类型的用户名字，然后是<code>int</code>型的用户id，然后又是<code>string</code>类型的用户电子邮件的地址，<code>string</code>类型的用户电话，还有枚举类型的电话类型，但是用户电话可以有多个。</p>
+<p>可以直接写一个<code>addressbook.proto</code>文件:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">message Person &#123;</span><br><span class="line">  required string name = 1;</span><br><span class="line">  required int32 id = 2;</span><br><span class="line">  optional string email = 3;</span><br><span class="line">  repeated int32 phone = 4;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>protobuf</code>对于每个字段的类型是这样的：</p>
+<table>
+<thead>
+<tr>
+<th>.proto类型</th>
+<th align="right">C++类型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>double</td>
+<td align="right">double</td>
+</tr>
+<tr>
+<td>float</td>
+<td align="right">float</td>
+</tr>
+<tr>
+<td>int32</td>
+<td align="right">int32</td>
+</tr>
+<tr>
+<td>int64</td>
+<td align="right">int64</td>
+</tr>
+<tr>
+<td>uint32</td>
+<td align="right">uint32</td>
+</tr>
+<tr>
+<td>uint64</td>
+<td align="right">uint64</td>
+</tr>
+<tr>
+<td>sint32</td>
+<td align="right">int32</td>
+</tr>
+<tr>
+<td>sint64</td>
+<td align="right">int64</td>
+</tr>
+<tr>
+<td>fixed32</td>
+<td align="right">uint32</td>
+</tr>
+<tr>
+<td>fixed64</td>
+<td align="right">uint64</td>
+</tr>
+<tr>
+<td>sfixed32</td>
+<td align="right">int32</td>
+</tr>
+<tr>
+<td>sfixed64</td>
+<td align="right">int64</td>
+</tr>
+<tr>
+<td>bool</td>
+<td align="right">bool</td>
+</tr>
+<tr>
+<td>string</td>
+<td align="right">string</td>
+</tr>
+<tr>
+<td>bytes</td>
+<td align="right">string</td>
+</tr>
+</tbody></table>
+<p>字段的类型详情可参见：<a target="_blank" rel="noopener" href="https://developers.google.com/protocol-buffers/docs/proto3">https://developers.google.com/protocol-buffers/docs/proto3</a></p>
+<p>其实别看类型有这么多，其实我用的类型也就只有<code>double</code>, <code>uint32</code>, <code>string</code>这三种。</p>
+<p>写完了<code>proto</code>文件之后使用编译命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">protoc --proto_path=. --cpp_out . ./addressbook.proto</span><br></pre></td></tr></table></figure>
+<p><code>proto_path</code>参数指定<code>proto</code>文件的路径名。<code>cpp_out</code>指定生成代码的路径名。可以看到在当前目录下生成了<code>addressbook.pb.h</code>和<code>addressbook.pb.cc</code>这两个文件。</p>
+<p>接下来看看<code>protobuf</code>为我们自动生成的头文件当中用到了哪些<code>getter</code>和<code>setter</code>方法：<br>通过查看头文件<code>addressbook.pb.h</code>，可以发现针对每个字段都会大致生成如下几种函数（用<code>string</code>类型的<code>name</code>为例）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">// required string name = 1;</span><br><span class="line">inline bool has_name() const;</span><br><span class="line">inline void clear_name();</span><br><span class="line">static const int kNameFieldNumber = 1;</span><br><span class="line">inline const ::std::string&amp; name() const;</span><br><span class="line">inline void set_name(const ::std::string&amp; value);</span><br><span class="line">inline void set_name(const char* value);</span><br><span class="line">inline void set_name(const char* value, size_t size);</span><br><span class="line">inline ::std::string* mutable_name();</span><br><span class="line">inline ::std::string* release_name();</span><br><span class="line">inline void set_allocated_name(::std::string* name);</span><br></pre></td></tr></table></figure>
+
+<p>对于每个字段会生成一个has函数(has_name)、clear清除函数(clear_name)、set函数(set_name)、get函数(name,mutable_name和release_name)。对于<code>const std::string &amp;name() const</code>的get函数而言，返回的是常量字段，不能对其值进行修改。但是在有一些情况下，对字段进行修改是必要的，所以提供了一个mutable版的get函数，通过获取字段变量的指针，从而达到改变其值的目的。<br>对于<code>set_allocated_name</code>这个函数是根据<code>string</code>指针来设置<code>name</code>的值，看起来没什么用，不过当类型不是<code>string</code>,而是同样身为<code>message</code>的类型的时候，就会知道只能用这个<code>set_allocated</code>的函数来设置变量的值。</p>
+<p>而对于<code>repeated</code>字段：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">// repeated int32 phone = 4;</span><br><span class="line"> inline int phone_size() const;</span><br><span class="line"> inline void clear_phone();</span><br><span class="line"> static const int kPhoneFieldNumber = 4;</span><br><span class="line"> inline ::google::protobuf::int32 phone(int index) const;</span><br><span class="line"> inline void set_phone(int index, ::google::protobuf::int32 value);</span><br><span class="line"> inline void add_phone(::google::protobuf::int32 value);</span><br><span class="line"> inline const ::google::protobuf::RepeatedField&lt; ::google::protobuf::int32 &gt;&amp;</span><br><span class="line">     phone() const;</span><br><span class="line"> inline ::google::protobuf::RepeatedField&lt; ::google::protobuf::int32 &gt;*</span><br><span class="line">     mutable_phone();</span><br></pre></td></tr></table></figure>
+
+<p>可以看出，多了一个<code>add</code>函数，而且<code>getter</code>和<code>setter</code>都需要依赖下标值。<br>使用方法：<br><code>hello.cpp</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;iostream&gt;</span><br><span class="line">#include &lt;string&gt;</span><br><span class="line">#include &quot;addressbook.pb.h&quot;</span><br><span class="line"></span><br><span class="line">using namespace std;</span><br><span class="line">int main(int argc, char** argv) &#123;</span><br><span class="line">  Person person;</span><br><span class="line">  //对于普通的字段直接使用setter方法</span><br><span class="line">  person.set_name(&quot;this is name&quot;);</span><br><span class="line">  person.set_id(1);</span><br><span class="line">  //person.set_email(&quot;test@test.com&quot;);</span><br><span class="line">  //对于repeated的字段只能使用add方法</span><br><span class="line">  person.add_phone(123);</span><br><span class="line">  person.add_phone(456);</span><br><span class="line">  </span><br><span class="line">  //将persion序列化成字符串</span><br><span class="line">  string str;</span><br><span class="line">  person.SerializeToString(&amp;str);</span><br><span class="line"></span><br><span class="line">  //从字符串当中反序列化取出对象</span><br><span class="line">  Person mine;</span><br><span class="line">  mine.ParseFromString(str);</span><br><span class="line">  </span><br><span class="line">  cout &lt;&lt; &quot;mine.name() --- &quot; &lt;&lt; mine.name() &lt;&lt; endl;</span><br><span class="line">  cout &lt;&lt; &quot;mine.id() --- &quot; &lt;&lt; mine.id() &lt;&lt; endl;</span><br><span class="line">  // 对于optional的字段，由于是可选的所以先判断一下消息当中是否有值</span><br><span class="line">  if (mine.has_email()) &#123;</span><br><span class="line">    cout &lt;&lt; &quot;mine.has_email() --- &quot; &lt;&lt; mine.has_email() &lt;&lt; endl;</span><br><span class="line">    cout &lt;&lt; &quot;mine.email() --- &quot; &lt;&lt; mine.email() &lt;&lt; endl;</span><br><span class="line">  &#125;</span><br><span class="line">  for (int i = 0; i&lt; mine.phone_size(); ++i) &#123;</span><br><span class="line">    cout &lt;&lt; &quot;mine.phone(&quot; &lt;&lt; i &lt;&lt; &quot;) --- &quot; &lt;&lt; mine.phone(i) &lt;&lt; endl;</span><br><span class="line">  &#125;</span><br><span class="line">  return 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>编译命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -o hello hello.cpp addressbook.pb.cc -lprotobuf</span><br></pre></td></tr></table></figure>
+
+<h2 id="嵌套message"><a href="#嵌套message" class="headerlink" title="嵌套message"></a>嵌套message</h2><p>对于message当中又使用了message的类型，那么内置的<code>mesasge</code>类型就没有<code>set</code>这三个函数。只能使用<code>set_allocate</code>前缀的函数来设置值。</p>
+<p>比如说这样的情况；<br><code>addressbook.proto</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">message MyType &#123;</span><br><span class="line">    required string type = 1;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">message Person &#123;</span><br><span class="line">    required string name = 1;</span><br><span class="line">    required int32 id = 2;</span><br><span class="line">    optional string email = 3;</span><br><span class="line">    repeated int32 phone = 4;</span><br><span class="line">    required MyType ptype = 5;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在这个<code>proto</code>文件当中的<code>Person</code>的<code>ptype</code>这个字段，它的类型就是自己定义的<code>message</code>类型，对于这种类型，<code>protobuf</code>并没有为之生成对应的<code>setter</code>，只能使用<code>set_allocated_ptype</code>这个函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">// required .MyType ptype = 5;</span><br><span class="line">inline bool has_ptype() const;</span><br><span class="line">inline void clear_ptype();</span><br><span class="line">static const int kPtypeFieldNumber = 5;</span><br><span class="line">inline const ::MyType&amp; ptype() const;</span><br><span class="line">inline ::MyType* mutable_ptype();</span><br><span class="line">inline ::MyType* release_ptype();</span><br><span class="line">inline void set_allocated_ptype(::MyType* ptype);</span><br></pre></td></tr></table></figure>
+
+<p>使用<code>set_allocated_ptype</code>这个函数有一个地方需要注意的。<br>比如说如果我这样用：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">MyType thetype;</span><br><span class="line">thetype.set_type(&quot;this is type&quot;);</span><br><span class="line">Person person;</span><br><span class="line">......</span><br><span class="line">person.set_allocated_ptype(&amp;thetype);</span><br></pre></td></tr></table></figure>
+<p>毫无疑问会出错，编译能通过，在我的<code>Ubuntu</code>上运行的错误有：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[1]    14882 segmentation fault (core dumped)  ./hello</span><br></pre></td></tr></table></figure>
+
+<p>解决方法是使用<code>new</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">MyType* thetype = new MyType;</span><br><span class="line">thetype-&gt;set_type(&quot;this is type&quot;);</span><br><span class="line">Person person;</span><br><span class="line">......</span><br><span class="line">person.set_allocated_ptype(thetype);</span><br></pre></td></tr></table></figure>
+<p>这样运行起来就没有问题了。</p>
+<h2 id="extend"><a href="#extend" class="headerlink" title="extend"></a>extend</h2><p><code>protobuf</code>的<code>extend</code>扩展功能能够在另外的<code>proto</code>文件当中扩展当前<code>proto</code>文件的<code>message</code>类型。</p>
+<p>使用方法是这样的：<br>首先要在需要扩展的<code>message</code>当中加上<code>extension</code>，比如说：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">message Person &#123;</span><br><span class="line">    required string name = 1;</span><br><span class="line">    required int32 id = 2;</span><br><span class="line">    optional string email = 3;</span><br><span class="line">    repeated int32 phone = 4;</span><br><span class="line">    required MyType ptype = 5;</span><br><span class="line">    extensions 100 to max;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里的<code>extensions 100 to max</code>是指扩展的时候要从100标识号开始到最大的标识号。<br>然后在本文件当中就可以直接这样写：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">extend Person &#123;</span><br><span class="line">    optional string hello = 101;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>看到这里的标识号是101。<br>通常情况下在选择标符号时，标识号产生的规则中应该避开[19000－19999]之间的数字，因为这些已经被<code>protobuf</code>实现中预留了。</p>
+<p>但是这样子在同一个文件当中使用<code>extend</code>似乎没有什么意义，我们需要在另外的文件当中使用<code>extend</code>的话应该是用<code>import</code>。</p>
+<p>比如我另外写一个文件<code>other.proto</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">import &quot;addressbook.proto&quot;;</span><br><span class="line"></span><br><span class="line">extend Person &#123;</span><br><span class="line">    optional string extend_str = 110;</span><br><span class="line">    optional MyType etype = 111;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这可是未完成版本，直接编译的话会有问题，提示找不到<code>Person</code>和<code>MyType</code>。是由于<code>addressbook.proto</code>文件当中没有使用<code>package</code>的原因。使用<code>import</code>就必须使用<code>package</code>。</p>
+<p>完成版本是这样：<br><code>addressbook.proto</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">package addressbook;</span><br><span class="line"></span><br><span class="line">message MyType &#123;</span><br><span class="line">    required string type = 1;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">message Person &#123;</span><br><span class="line">    required string name = 1;</span><br><span class="line">    required int32 id = 2;</span><br><span class="line">    optional string email = 3;</span><br><span class="line">    repeated int32 phone = 4;</span><br><span class="line">    required MyType ptype = 5;</span><br><span class="line">    extensions 100 to max;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">extend Person &#123;</span><br><span class="line">    optional string hello = 101;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>other.proto</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">package addressbook.other;</span><br><span class="line"></span><br><span class="line">import &quot;addressbook.proto&quot;;</span><br><span class="line"></span><br><span class="line">extend addressbook.Person &#123;</span><br><span class="line">    optional string extend_str = 110;</span><br><span class="line">    optional addressbook.MyType etype = 111;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>看一看<code>protobuf</code>为我生成的代码：<br><code>addressbook.pb.h</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">GOOGLE_PROTOBUF_EXTENSION_ACCESSORS(Person);</span><br><span class="line">extern ::google::protobuf::internal::ExtensionIdentifier&lt; ::addressbook::Person,</span><br><span class="line">    ::google::protobuf::internal::StringTypeTraits, 9, false &gt;</span><br><span class="line">  hello;</span><br></pre></td></tr></table></figure>
+
+<p>还有在<code>other.pb.h</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">static const int kExtendStrFieldNumber = 110;</span><br><span class="line">extern ::google::protobuf::internal::ExtensionIdentifier&lt; ::addressbook::Person,</span><br><span class="line">    ::google::protobuf::internal::StringTypeTraits, 9, false &gt;</span><br><span class="line">  extend_str;</span><br><span class="line">static const int kEtypeFieldNumber = 111;</span><br><span class="line">extern ::google::protobuf::internal::ExtensionIdentifier&lt; ::addressbook::Person,</span><br><span class="line">    ::google::protobuf::internal::MessageTypeTraits&lt; ::addressbook::MyType &gt;, 11, false &gt;</span><br><span class="line">  etype;</span><br></pre></td></tr></table></figure>
+<p>并没有任何<code>getter</code>和<code>setter</code>方法。其实是有的，相对应的接口都在宏”GOOGLE_PROTOBUF_EXTENSION_ACCESSORS”当中了，我看了<a target="_blank" rel="noopener" href="http://colobu.com/2015/01/07/Protobuf-language-guide/">Protobuf 语法指南</a>，给出了接口：     <code>HasExtension()</code>，<code>ClearExtension()</code>，<code>GetExtension()</code>，<code>SetExtension()</code>，<code>MutableExtension()</code>，以及 <code>AddExtension()</code>。</p>
+<p>如果<code>extend</code>当中的是普通类型，那么使用<code>SetExtension</code>就可以。如果<code>extend</code>当中的也是<code>message</code>的类型，那么就只能使用<code>MutableExtension</code>来做<code>set</code>的操作。</p>
+<p>比如实现方式：<br><code>hello.cpp</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;iostream&gt;</span><br><span class="line">#include &lt;string&gt;</span><br><span class="line">#include &quot;addressbook.pb.h&quot;</span><br><span class="line">#include &quot;other.pb.h&quot;</span><br><span class="line"></span><br><span class="line">using namespace std;</span><br><span class="line">int main(int argc, char** argv) &#123;</span><br><span class="line">  ::addressbook::Person person;</span><br><span class="line">  person.set_name(&quot;this is name&quot;);</span><br><span class="line">  person.set_id(1);</span><br><span class="line">  //person.set_email(&quot;test@test.com&quot;);</span><br><span class="line">  person.add_phone(123);</span><br><span class="line">  person.add_phone(456);</span><br><span class="line">  ::addressbook::MyType* thetype = new ::addressbook::MyType;</span><br><span class="line">  thetype-&gt;set_type(&quot;this is type&quot;);</span><br><span class="line">  person.set_allocated_ptype(thetype);</span><br><span class="line">  //===================================================================================</span><br><span class="line">  // 普通的字段只需要使用SetExtension</span><br><span class="line">  person.SetExtension(::addressbook::hello, &quot;this is hello&quot;);</span><br><span class="line">  person.SetExtension(::addressbook::other::extend_str, &quot;this is extend_str&quot;);</span><br><span class="line">  // message类型的字段需要使用MutableExtension，要先获取到指针，然后再操作</span><br><span class="line">  ::addressbook::MyType* abctype = person.MutableExtension(::addressbook::other::etype);</span><br><span class="line">  abctype-&gt;set_type(&quot;this is abc type&quot;);</span><br><span class="line">  </span><br><span class="line">  string str;</span><br><span class="line">  person.SerializeToString(&amp;str);</span><br><span class="line"></span><br><span class="line">  ::addressbook::Person mine;</span><br><span class="line">  mine.ParseFromString(str);</span><br><span class="line">  </span><br><span class="line">  cout &lt;&lt; &quot;mine.name() --- &quot; &lt;&lt; mine.name() &lt;&lt; endl;</span><br><span class="line">  cout &lt;&lt; &quot;mine.id() --- &quot; &lt;&lt; mine.id() &lt;&lt; endl;</span><br><span class="line">  if (mine.has_email()) &#123;</span><br><span class="line">    cout &lt;&lt; &quot;mine.has_email() --- &quot; &lt;&lt; mine.has_email() &lt;&lt; endl;</span><br><span class="line">    cout &lt;&lt; &quot;mine.email() --- &quot; &lt;&lt; mine.email() &lt;&lt; endl;</span><br><span class="line">  &#125;</span><br><span class="line">  for (int i = 0; i&lt; mine.phone_size(); ++i) &#123;</span><br><span class="line">    cout &lt;&lt; &quot;mine.phone(&quot; &lt;&lt; i &lt;&lt; &quot;) --- &quot; &lt;&lt; mine.phone(i) &lt;&lt; endl;</span><br><span class="line">  &#125;</span><br><span class="line">  cout &lt;&lt; &quot;mine.ptype().type() --- &quot; &lt;&lt; mine.ptype().type() &lt;&lt; endl;</span><br><span class="line">  //==================================================================================</span><br><span class="line">  //调用extension的时候，不管是普通字段还是message字段都只要使用GetExtension</span><br><span class="line">  cout &lt;&lt; &quot;person.GetExtension(::addressbook::hello)&quot; &lt;&lt; person.GetExtension(::addressbook::hello) &lt;&lt; endl;</span><br><span class="line">  cout &lt;&lt; &quot;person.GetExtension(::addressbook::other::extend_str)&quot; &lt;&lt; person.GetExtension(::addressbook::other::extend_str) &lt;&lt; endl;</span><br><span class="line">  cout &lt;&lt; &quot;person.GetExtension(::addressbook::other::etype).type()&quot; &lt;&lt; person.GetExtension(::addressbook::other::etype).type() &lt;&lt; endl;</span><br><span class="line"></span><br><span class="line">  return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="proto文件的设计"><a href="#proto文件的设计" class="headerlink" title="proto文件的设计"></a><code>proto</code>文件的设计</h2><p>有关入门和比较重要的嵌套message和extend已经介绍完了，现在进一步就该进入主题了：<code>proto</code>文件的设计。<br>我参考了这篇文章：<a target="_blank" rel="noopener" href="https://github.com/zfengzhen/Blog/blob/master/article/protobuf%E5%8D%8F%E8%AE%AE%E8%AE%BE%E8%AE%A1.md">《Protobuf协议设计》</a>，我采用其中的<code>Extension</code>的方式，业务逻辑包使用<code>Body</code>嵌套。这样能够使得<code>proto</code>文件阅读性更强。</p>
+<p>好了，我的<a target="_blank" rel="noopener" href="https://github.com/adairjun/message/tree/master/proto">proto文件</a>，其中有2个<code>proto</code>文件：<a target="_blank" rel="noopener" href="https://github.com/adairjun/message/blob/master/proto/rapidmsg.proto">rapidmsg.proto</a>和<a target="_blank" rel="noopener" href="https://github.com/adairjun/message/blob/master/proto/test.151000.153000.proto">test.151000.153000.proto</a>两个文件。</p>
+<p>之所以把测试用的<code>proto</code>文件取名为<code>151000.153000</code>是设定在这个<code>proto</code>文件当中<code>extend</code>的标识号是从151000到153000之间。</p>
+<h3 id="消息头"><a href="#消息头" class="headerlink" title="消息头"></a>消息头</h3><p><code>rapidmsg.proto</code>是总体的消息定义。把消息起名为<code>rapidmsg</code>是借鉴了<code>rapidxml</code>和<code>rapidjson</code>的名字。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">package rapidmsg;</span><br></pre></td></tr></table></figure>
+<p>定义消息的格式<code>RMessage</code>，只有两部分，协议头和协议体。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">message RMessage &#123;</span><br><span class="line">    // 协议头</span><br><span class="line">    required Head head = 1;</span><br><span class="line"></span><br><span class="line">    // 协议体</span><br><span class="line">    required Body body = 2;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>消息头：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">message Head &#123;</span><br><span class="line">    required string session_no = 1;                // 会话的编号，这里之所以用string形式是为了最后的一个回话可以标记为&quot;final&quot;,而如果是使用数字类型的话，根本不知道哪一个是最后的会话。</span><br><span class="line">    required uint32 message_type = 2;              //  消息类型，比如10就代表了SIMPLE_RESPONSE这个消息，这个是为了做个检查，判断一下是否和消息体当中的消息类型一致。而这个消息类型同样用在消息队列的long messageType当中</span><br><span class="line">    optional string client_ip = 3;                 // 客户端ip</span><br><span class="line">    optional string target_ip = 4;                 // 目标IP</span><br><span class="line">    optional uint32 target_port = 5;               // 目标端口</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>消息类型，用于消息队列当中<code>long messageType</code>当中：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">enum MessageType &#123;</span><br><span class="line">    SIMPLE_RESPONSE = 10;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>消息体，设置扩展选项，测试的<code>test.151000.153000.proto</code>就扩展这个<code>Body</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">message Body &#123;</span><br><span class="line">    optional SimpleResponse simple_response = 1;</span><br><span class="line">    extensions 100 to max;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>至于<code>SimpleResponse</code>这个类型就是自己定义的<code>message</code>类型了。</p>
+<p>现在用<code>test.151000.153000.proto</code>示例来表示如何扩张<code>rapidmsg</code>的<code>body</code>：<br>首先扩张<code>MessageType</code>，扩张的时候从逻辑上讲一定是一个<code>request</code>和<code>response</code>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">// =====================================================================</span><br><span class="line">enum MessageType &#123;</span><br><span class="line">        BEGINNING_ID = 151000;                 //标记是开始，没意义</span><br><span class="line">// -------------------------------------------------------------------------------------</span><br><span class="line">        // 消息类型 </span><br><span class="line">        JUST_TEST_REQUEST = 151001;             // 一个测试 </span><br><span class="line">        JUST_TEST_RESPONSE = 151002;</span><br><span class="line">// -------------------------------------------------------------------------------------</span><br><span class="line">        ENDING_ID = 153000;                   //标记是结束，也没意义。</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>继续扩张<code>body</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">// =====================================================================</span><br><span class="line">extend rapidmsg.Body &#123;</span><br><span class="line">        optional JustTestRequest just_test_request = 151001;</span><br><span class="line">        optional JustTestResponse just_test_response = 151002;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>至于<code>JustTestRequest</code>和<code>JustTestResponse</code>再接着定义一下就OK了。 </p>
+<p>以后的任何消息定义都只需要仿造<code>just_test_request</code>和<code>just_test_response</code>这两个写在它们的下面，或者直接按照这个格式另外写一个<code>proto</code>文件。</p>
+<h2 id="延伸阅读："><a href="#延伸阅读：" class="headerlink" title="延伸阅读："></a>延伸阅读：</h2><p><a target="_blank" rel="noopener" href="http://www.searchtb.com/2012/09/protocol-buffers.html">玩转Protocol Buffers</a><br><a target="_blank" rel="noopener" href="http://colobu.com/2015/01/07/Protobuf-language-guide/">Protobuf 语法指南</a></p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/MessageQueue/">MessageQueue</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/protobuf/">protobuf</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2016/02/16/mqueue2/" data-title="消息队列与共享内存(二)：protobuf序列化消息 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2016/02/16/mqueue3/" title="消息队列与共享内存(三)：格式化消息的`message_factory`设计">
+  <strong>上一篇：</strong><br/>
+  <span>
+  消息队列与共享内存(三)：格式化消息的`message_factory`设计</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2016/02/16/mqueue1/"  title="消息队列与共享内存(一)：System V 消息队列">
+ <strong>下一篇：</strong><br/> 
+ <span>消息队列与共享内存(一)：System V 消息队列
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%A5%E9%97%A8"><span class="toc-number">1.</span> <span class="toc-text">入门</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B5%8C%E5%A5%97message"><span class="toc-number">2.</span> <span class="toc-text">嵌套message</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#extend"><span class="toc-number">3.</span> <span class="toc-text">extend</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#proto%E6%96%87%E4%BB%B6%E7%9A%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">4.</span> <span class="toc-text">proto文件的设计</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B6%88%E6%81%AF%E5%A4%B4"><span class="toc-number">4.1.</span> <span class="toc-text">消息头</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BB%B6%E4%BC%B8%E9%98%85%E8%AF%BB%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">延伸阅读：</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

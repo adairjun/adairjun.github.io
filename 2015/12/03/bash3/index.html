@@ -1,0 +1,716 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>shell脚本总结篇(三)：附上我常用的shell脚本 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="最后附上一些我常用的脚本：软件安装完成之后设置为linux开机启动大多数linux发行版本提供了一个本地开机文件专门让系统管理员添加开机时候运行的脚本。脚本必须绝对路径。debian的本地开机文件是&#x2F;etc&#x2F;init.d&#x2F;rc.local，redhat是&#x2F;etc&#x2F;rc.local。除此之外还能用chkconfig来做: 我自用的apache安装脚本： 12345678910111213141516">
+<meta property="og:type" content="article">
+<meta property="og:title" content="shell脚本总结篇(三)：附上我常用的shell脚本">
+<meta property="og:url" content="http://xiongjun.info/2015/12/03/bash3/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="最后附上一些我常用的脚本：软件安装完成之后设置为linux开机启动大多数linux发行版本提供了一个本地开机文件专门让系统管理员添加开机时候运行的脚本。脚本必须绝对路径。debian的本地开机文件是&#x2F;etc&#x2F;init.d&#x2F;rc.local，redhat是&#x2F;etc&#x2F;rc.local。除此之外还能用chkconfig来做: 我自用的apache安装脚本： 12345678910111213141516">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://ww4.sinaimg.cn/large/9d13bd87gw1eyl1om6p7cj206f05taac.jpg">
+<meta property="og:image" content="http://ww2.sinaimg.cn/large/9d13bd87gw1eyl1oza84xj203q02xjrc.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/9d13bd87gw1eyl1ea1kqnj20ga04xwg5.jpg">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/9d13bd87gw1eyl1pb0cg2j207z05oq3g.jpg">
+<meta property="og:image" content="http://ww4.sinaimg.cn/large/9d13bd87gw1eyl1pj0u1oj205a030mxa.jpg">
+<meta property="article:published_time" content="2015-12-03T15:59:11.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.088Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="bash">
+<meta property="article:tag" content="shell">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://ww4.sinaimg.cn/large/9d13bd87gw1eyl1om6p7cj206f05taac.jpg">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/03/bash3/" title="shell脚本总结篇(三)：附上我常用的shell脚本" itemprop="url">shell脚本总结篇(三)：附上我常用的shell脚本</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-03T15:59:11.000Z" itemprop="datePublished"> 发表于 2015-12-03</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%80%E5%90%8E%E9%99%84%E4%B8%8A%E4%B8%80%E4%BA%9B%E6%88%91%E5%B8%B8%E7%94%A8%E7%9A%84%E8%84%9A%E6%9C%AC%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">最后附上一些我常用的脚本：</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BD%AF%E4%BB%B6%E5%AE%89%E8%A3%85%E5%AE%8C%E6%88%90%E4%B9%8B%E5%90%8E%E8%AE%BE%E7%BD%AE%E4%B8%BAlinux%E5%BC%80%E6%9C%BA%E5%90%AF%E5%8A%A8"><span class="toc-number">1.1.</span> <span class="toc-text">软件安装完成之后设置为linux开机启动</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E7%A0%81%E8%BD%AC%E6%8D%A2%EF%BC%9A"><span class="toc-number">1.2.</span> <span class="toc-text">编码转换：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9F%A5%E7%9C%8BCPU%E5%92%8C%E5%86%85%E5%AD%98%E7%9A%84%E4%BD%BF%E7%94%A8%E6%83%85%E5%86%B5%EF%BC%8C%E5%B9%B6%E6%89%93%E5%8D%B0%E6%97%A5%E5%BF%97%EF%BC%9A"><span class="toc-number">1.3.</span> <span class="toc-text">查看CPU和内存的使用情况，并打印日志：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%8Exml%E5%BD%93%E4%B8%AD%E8%AF%BB%E5%8F%96redis%E7%9A%84ip%E5%9C%B0%E5%9D%80%E5%92%8C%E7%AB%AF%E5%8F%A3%E5%8F%B7%EF%BC%9A"><span class="toc-number">1.4.</span> <span class="toc-text">从xml当中读取redis的ip地址和端口号：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E5%AE%89%E5%85%A8%E7%A7%98%E9%92%A5%E7%94%A8%E4%BA%8E%E9%AA%8C%E8%AF%81%E7%99%BB%E9%99%86%EF%BC%9A"><span class="toc-number">1.5.</span> <span class="toc-text">生成安全秘钥用于验证登陆：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%87%8A%E6%94%BE%E6%89%80%E6%9C%89%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%EF%BC%9A"><span class="toc-number">1.6.</span> <span class="toc-text">释放所有共享内存：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%99%E6%8E%A5%E5%8F%A3%E7%94%A8%E7%9A%84%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90%E5%99%A8%EF%BC%9A"><span class="toc-number">1.7.</span> <span class="toc-text">写接口用的代码生成器：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%A8shell%E8%84%9A%E6%9C%AC%E5%92%8Ccrontab%E8%87%AA%E5%8A%A8%E5%9C%A8%E8%B1%86%E7%93%A3%E4%B8%8A%E9%A1%B6%E8%B4%B4%EF%BC%9A"><span class="toc-number">1.8.</span> <span class="toc-text">用shell脚本和crontab自动在豆瓣上顶贴：</span></a></li></ol></li></ol>
+		
+		</div>
+		
+		<h2 id="最后附上一些我常用的脚本："><a href="#最后附上一些我常用的脚本：" class="headerlink" title="最后附上一些我常用的脚本："></a>最后附上一些我常用的脚本：</h2><h3 id="软件安装完成之后设置为linux开机启动"><a href="#软件安装完成之后设置为linux开机启动" class="headerlink" title="软件安装完成之后设置为linux开机启动"></a>软件安装完成之后设置为linux开机启动</h3><p>大多数linux发行版本提供了一个本地开机文件专门让系统管理员添加开机时候运行的脚本。脚本必须绝对路径。debian的本地开机文件是/etc/init.d/rc.local，redhat是/etc/rc.local。<br>除此之外还能用<code>chkconfig</code>来做:</p>
+<p>我自用的apache安装脚本：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"># 需要sudo执行</span><br><span class="line"></span><br><span class="line">dir=`pwd`</span><br><span class="line"></span><br><span class="line">#要安装pcre先要安装gcc, g++</span><br><span class="line">if [[ `ls /etc|grep redhat-release` != &quot;&quot; ]]</span><br><span class="line">then</span><br><span class="line">	yum -y install gcc gcc-c++</span><br><span class="line">elif [[ `ls /etc|grep debian_version` != &quot;&quot; ]]</span><br><span class="line">then</span><br><span class="line">	apt-get -y install gcc gcc-c++</span><br><span class="line">fi</span><br><span class="line"></span><br><span class="line">if [[ `ls|grep apr` == &quot;&quot; ]]</span><br><span class="line">then</span><br><span class="line">	wget http://mirrors.cnnic.cn/apache//apr/apr-1.5.2.tar.gz</span><br><span class="line">fi</span><br><span class="line">tar -zxvf apr-1.5.2.tar.gz</span><br><span class="line">mkdir /usr/local/lib/apr-1.5.2</span><br><span class="line">cd $dir/apr-1.5.2</span><br><span class="line">./configure --prefix=/usr/local/lib/apr-1.5.2 </span><br><span class="line">make</span><br><span class="line">make install</span><br><span class="line"></span><br><span class="line">cd $dir</span><br><span class="line">if [[ `ls|grep apr-util` == &quot;&quot; ]]</span><br><span class="line">then</span><br><span class="line">	wget http://mirrors.cnnic.cn/apache//apr/apr-util-1.5.4.tar.gz</span><br><span class="line">fi</span><br><span class="line">tar -zxvf apr-util-1.5.4.tar.gz</span><br><span class="line">mkdir /usr/local/lib/apr-util-1.5.4.tar.gz</span><br><span class="line">cd $dir/apr-util-1.5.4</span><br><span class="line">./configure --prefix=/usr/local/lib/apr-util-1.5.4 --with-apr=/usr/local/lib/apr-1.5.2</span><br><span class="line">make </span><br><span class="line">make install</span><br><span class="line"></span><br><span class="line">cd $dir</span><br><span class="line">if [[ `ls|grep pcre` == &quot;&quot; ]]</span><br><span class="line">then</span><br><span class="line">	wget http://ncu.dl.sourceforge.net/project/pcre/pcre/8.37/pcre-8.37.tar.gz</span><br><span class="line">fi</span><br><span class="line">tar -zxvf pcre-8.37.tar.gz</span><br><span class="line">mkdir /usr/local/lib/pcre-8.37</span><br><span class="line">cd $dir/pcre-8.37</span><br><span class="line">./configure --prefix=/usr/local/lib/pcre-8.37</span><br><span class="line">make </span><br><span class="line">make install</span><br><span class="line"></span><br><span class="line">cd $dir</span><br><span class="line">if [[ `ls|grep httpd` == &quot;&quot; ]]</span><br><span class="line">then</span><br><span class="line">	wget http://www.apache.org/dist/httpd/httpd-2.4.12.tar.gz</span><br><span class="line">fi</span><br><span class="line">tar -zxvf httpd-2.4.12.tar.gz</span><br><span class="line">mkdir /usr/local/lib/httpd-2.4.12</span><br><span class="line">cd $dir/httpd-2.4.12</span><br><span class="line">./configure --prefix=/usr/local/lib/httpd-2.4.12 --with-apr=/usr/local/lib/apr-1.5.2  --with-apr-util=/usr/local/lib/apr-util-1.5.4 --with-pcre=/usr/local/lib/pcre-8.37  --enable-so</span><br><span class="line">make</span><br><span class="line">make install</span><br><span class="line"></span><br><span class="line">#解决httpd: Could not reliably determine the server&#x27;s fully qualified domain name, using 127.0.1.1. Set the &#x27;ServerName&#x27; directive globally to suppress this message</span><br><span class="line"></span><br><span class="line">sed -i &#x27;s/^#ServerName www.example.com:80/ServerName localhost/g&#x27; /usr/local/lib/httpd-2.4.12/conf/httpd.conf</span><br><span class="line"></span><br><span class="line">/usr/local/lib/httpd-2.4.12/bin/apachectl start                          #启动apache</span><br><span class="line">if [[ `curl -s localhost:80|grep &quot;It works&quot;` != &quot;&quot; ]]</span><br><span class="line">then</span><br><span class="line">	echo &quot;----------------------安装成功-------------------------------------&quot;</span><br><span class="line">	cd $dir</span><br><span class="line">	rm -rf apr-1.5.2/ apr-util-1.5.4/ pcre-8.37/ httpd-2.4.12/</span><br><span class="line">fi</span><br><span class="line"></span><br><span class="line">#设置apache开机启动</span><br><span class="line">echo &quot;/usr/local/lib/httpd-2.4.12/bin/apachectl start&quot; &gt;&gt; /etc/rc.local</span><br></pre></td></tr></table></figure>
+
+<h3 id="编码转换："><a href="#编码转换：" class="headerlink" title="编码转换："></a>编码转换：</h3><p>我的脚本就这么一行代码，所以直接上代码：<br>转换的命令为<code>iconv</code>,把hello.txt文本当中的gb2312编码转为utf-8编码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iconv -c -f gb2312 -t utf-8 hello.txt &gt; world.txt</span><br></pre></td></tr></table></figure>
+<p>或者使用<code>-o</code>的参数:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iconv -c -f gb2312 -t utf-8  hello.txt -o hello.txt</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看CPU和内存的使用情况，并打印日志："><a href="#查看CPU和内存的使用情况，并打印日志：" class="headerlink" title="查看CPU和内存的使用情况，并打印日志："></a>查看CPU和内存的使用情况，并打印日志：</h3><p>这个脚本要配合<code>crontab</code>一起使用：<br><code>monitor.sh</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"></span><br><span class="line"># 首先监控服务器的CPU和内存</span><br><span class="line"></span><br><span class="line"># 查看服务器CPU的核数</span><br><span class="line">model_count() &#123;</span><br><span class="line">  echo `grep -c &#x27;model name&#x27; /proc/cpuinfo`</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"># 查看服务器15分钟内的平均负载情况</span><br><span class="line">CPU_load() &#123;</span><br><span class="line">  echo `uptime | awk &#x27;&#123;print $10&#125;&#x27;`</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"># 查看服务器的ip地址</span><br><span class="line">ip_address() &#123;</span><br><span class="line">  echo `ifconfig | grep &quot;192.&quot; | awk &#x27;&#123;print substr($2,6)&#125;&#x27;`</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"># 查看内存使用情况</span><br><span class="line">memory_used() &#123;</span><br><span class="line">  echo `free -hm | grep Mem | awk &#x27;&#123;print $4&#125;&#x27;`</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"># 查看系统磁盘空间</span><br><span class="line">disk_used() &#123;</span><br><span class="line">  echo `df -h | awk -vfield=$1 &#x27;&#123;if($6==field) print $5&#125;&#x27;`</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"># 根据进程名查找进程id</span><br><span class="line">process_id() &#123;</span><br><span class="line">  echo `ps aux | grep $1 | awk &#x27;&#123;print $2&#125;&#x27;`</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"># 查看进程id的CPU使用率</span><br><span class="line">process_CPU_used() &#123;</span><br><span class="line">  echo `ps -p $1 -o pcpu --no-headers`</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"># 查看进程id的内存使用率</span><br><span class="line">process_memory_used() &#123;</span><br><span class="line">  memory=`ps -p $1 -o vsz --no-headers`</span><br><span class="line">  result=$[$memory/1000]</span><br><span class="line">  echo $result</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">server_monitor() &#123;</span><br><span class="line">  # 打日志,日志文件为每天 </span><br><span class="line">  mkdir -p ./server_log/ </span><br><span class="line">  server_log=server_load.`date +&quot;%y-%m-%d&quot;`.log</span><br><span class="line">  date &gt;&gt; ./server_log/$server_log</span><br><span class="line">  echo &quot;server&#x27;s ip address is &quot; `ip_address` &gt;&gt; ./server_log/$server_log</span><br><span class="line">  echo &quot;CPU&#x27;s core number is  &quot; `model_count` &gt;&gt; ./server_log/$server_log</span><br><span class="line">  echo &quot;CPU&#x27;s load is &quot; `CPU_load` &gt;&gt; ./server_log/$server_log</span><br><span class="line">  echo &quot;Memory used is &quot; `memory_used` &gt;&gt; ./server_log/$server_log</span><br><span class="line">  #查看根目录的磁盘使用空间</span><br><span class="line">  echo &quot;disk used is &quot; `disk_used &quot;/&quot;` &gt;&gt; ./server_log/$server_log</span><br><span class="line">  processId=`process_id &quot;chrome&quot;`</span><br><span class="line">  echo &quot;chrome process CPU used &quot; `process_CPU_used $processId` &gt;&gt; ./server_log/$server_log</span><br><span class="line">  echo &quot;chrome process memory used &quot; `process_memory_used $processId` &quot;M&quot; &gt;&gt; ./server_log/$server_log</span><br><span class="line">  echo &quot;===============================&quot; &gt;&gt; ./server_log/$server_log</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">server_monitor</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="从xml当中读取redis的ip地址和端口号："><a href="#从xml当中读取redis的ip地址和端口号：" class="headerlink" title="从xml当中读取redis的ip地址和端口号："></a>从xml当中读取redis的ip地址和端口号：</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"></span><br><span class="line"># 获取当前地址</span><br><span class="line">CMD=$0</span><br><span class="line">if [[ $&#123;CMD&#125; == /* ]]; then</span><br><span class="line">	CDIR=$&#123;CMD%/*&#125;</span><br><span class="line">else</span><br><span class="line">	CDIR=`pwd`&quot;/&quot;$&#123;CMD%/*&#125;</span><br><span class="line">fi</span><br><span class="line"></span><br><span class="line"># 根据当期地址找到全局的配置文件</span><br><span class="line">GLOBALCONF=&quot;$&#123;CDIR&#125;/../conf/DeployConfig.xml&quot;</span><br><span class="line"></span><br><span class="line"># 拿到redis的ip和端口</span><br><span class="line">REDIS_SERVER_IP=`cat $&#123;GLOBALCONF&#125; | tr -s &#x27;\r\n&#x27; &#x27; &#x27; | sed &#x27;s/^.*REDIS&lt;\/type&gt;\s*&lt;ip&gt;\(\w*\.\w*\.\w*\.\w*\)&lt;\/ip&gt;.*$/\1/&#x27;`</span><br><span class="line"></span><br><span class="line">REDIS_SERVER_PORT=`cat $&#123;GLOBALCONF&#125; | tr -s &#x27;\r\n&#x27; &#x27; &#x27; | sed &#x27;s/^.*REDIS&lt;\/type&gt;\s*&lt;ip&gt;\(\w*\.\w*\.\w*\.\w*\)&lt;\/ip&gt;\s*&lt;port&gt;\(\w*\)&lt;\/port&gt;.*$/\2/&#x27;`</span><br><span class="line"></span><br><span class="line">#echo $&#123;GLOBALCONF&#125;</span><br><span class="line">#echo $&#123;REDIS_SERVER_IP&#125;</span><br><span class="line">#echo $&#123;REDIS_SERVER_PORT&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h3 id="生成安全秘钥用于验证登陆："><a href="#生成安全秘钥用于验证登陆：" class="headerlink" title="生成安全秘钥用于验证登陆："></a>生成安全秘钥用于验证登陆：</h3><p>在写这个脚本之前先介绍一下<code>openssl</code>命令，我就是用这个命令进行加密和解密的，算法使用的是<code>aes</code></p>
+<blockquote>
+<p>只要利用<code>openssl help</code>就可以看到更多的安全算法了</p>
+</blockquote>
+<p>对字符串‘abc’进行<code>aes</code>加密，使用密钥123，输出结果以base64编码格式给出：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo abc | openssl aes-128-cbc -k 123 -base64</span><br></pre></td></tr></table></figure>
+
+<p>生成的密码为:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">U2FsdGVkX198JFSRzZGVS+pY+egLZO+vbHQeMDJ/Qv4=	</span><br></pre></td></tr></table></figure>
+
+<p>可以对密码进行解密来查看生成密码的正确性：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">echo U2FsdGVkX198JFSRzZGVS+pY+egLZO+vbHQeMDJ/Qv4= | openssl aes-128-cbc -d -k 123 -base64</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>可以看到输出为</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">abc</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这里要说一下我遇到的有关-A参数的问题。openssl基于enc（symmetric cipher routines）的加密解密时command里要添加-A 选项。这个选项的作用是对于一串字符加密或解密时，所有内容在一行内输出。在需要加密的字符串长度超过40时（今在我的电脑上测试的数据，fedora 20），如果没有加入-A选项，解密时会出现”error reading input file” 以及 “bad magic number” 这两种错误提示。</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">#======================================</span><br><span class="line">#   Author: xiongjun</span><br><span class="line">#======================================</span><br><span class="line"></span><br><span class="line">if [ $# -lt 2 ]</span><br><span class="line">then</span><br><span class="line">	echo -ne &quot;\033[31m&quot;</span><br><span class="line">	echo &quot;genKey.sh doesn&#x27;t get enough arguments&quot;</span><br><span class="line">	echo -ne &quot;\033[0m&quot;</span><br><span class="line">	echo -ne &quot;\033[32m&quot;</span><br><span class="line">	echo &quot;./genKey.sh &lt;UserName&gt; &lt;password&gt; &quot;</span><br><span class="line">	echo &quot;example : ./genKey.sh baidu official &quot;</span><br><span class="line">	echo &quot;example : ./genKey.sh baidu try&quot;</span><br><span class="line">	echo -ne &quot;\033[0m&quot;</span><br><span class="line">	exit</span><br><span class="line">fi</span><br><span class="line"></span><br><span class="line">CompanyName=$1</span><br><span class="line">Password=$2                      </span><br><span class="line"></span><br><span class="line">mark=&quot;###==###==#&quot;</span><br><span class="line">line=$UserName$mark$Password</span><br><span class="line"></span><br><span class="line">echo $line | openssl enc -aes-128-cbc -k KEY -base64 -A &gt; $&#123;UserName&#125;_key</span><br></pre></td></tr></table></figure>
+
+<h3 id="释放所有共享内存："><a href="#释放所有共享内存：" class="headerlink" title="释放所有共享内存："></a>释放所有共享内存：</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">username=`whoami`</span><br><span class="line"># 显示所有的共享内存</span><br><span class="line">shmids=`ipcs -m | grep $username | awk &#x27;&#123;print $2&#125;&#x27;`</span><br><span class="line">for shmid in `echo $shmids`;</span><br><span class="line">do</span><br><span class="line"># 释放所有的共享内存</span><br><span class="line">ipcrm -m $shmid;</span><br><span class="line">done</span><br></pre></td></tr></table></figure>
+
+<h3 id="写接口用的代码生成器："><a href="#写接口用的代码生成器：" class="headerlink" title="写接口用的代码生成器："></a>写接口用的代码生成器：</h3><p>我写C++代码的后端接口的增删改查我直接都是用这个代码生成器来完成的，这里用了很多<code>awk</code>的函数。<br>说是代码生成器，其实是代码修改器，就是先拷贝一个以前的工程目录下来，然后在这个拷贝的目录当中执行这段脚本来修改接口名称：由于这里使用了<code>awk</code>指定了下划线，所以接口名必须是有下划线:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">#这是个代码生成器, 函数都是使用echo来返回</span><br><span class="line"></span><br><span class="line">#首字母大写, 就是把list_db改成List_Db</span><br><span class="line">first_upper() &#123;</span><br><span class="line">    result=&quot;&quot;;</span><br><span class="line">    count=`echo $1 | awk -F_ &#x27;&#123;print NF&#125;&#x27;`</span><br><span class="line">    for ((i=0;i&lt;count;i++)) </span><br><span class="line">    do</span><br><span class="line">        #根据下划线取出被分隔的字符串</span><br><span class="line">        #由于awk的原因,不能在awk的print当中直接使用i,所以要在这里先把外部的一个变量field设为和比i大1的值,再用awk的-v参数传给print</span><br><span class="line">        temp=$[$i+1]</span><br><span class="line">        word=`echo $1 | awk -vfield=$temp -F_ &#x27;&#123;print $field&#125;&#x27;`</span><br><span class="line">        result_word=`echo $word | awk &#x27;&#123;printf &quot;%s%s&quot;, toupper(substr($0, 1, 1)), tolower(substr($0, 2))&#125;&#x27;`</span><br><span class="line">        if (( i==0 )) </span><br><span class="line">        then</span><br><span class="line">            result=$result_word;</span><br><span class="line">        else</span><br><span class="line">            #让result后增加下划线</span><br><span class="line">            result=`echo $result&quot;_&quot;$result_word`</span><br><span class="line">        fi</span><br><span class="line">    done</span><br><span class="line">    echo $result</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">#用awk -F_ 的原因是我写的JAVA代码的很多接口名称都是有下划线的</span><br><span class="line">all_upper() &#123;</span><br><span class="line">    echo $1 | awk -F_ &#x27;&#123;print toupper($0)&#125;&#x27;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">all_lower() &#123;</span><br><span class="line">    echo $1 | awk -F_ &#x27;&#123;print tolower($0)&#125;&#x27;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">#去掉下划线</span><br><span class="line">erase_symbol() &#123;</span><br><span class="line">    echo $1 | awk -F_ &#x27;&#123;for(i=1;i&lt;=NF;i++) printf &quot;%s&quot;, $i&#125;&#x27;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">main() &#123;</span><br><span class="line">    STR_SRC=$1</span><br><span class="line">    STR_DST=$2</span><br><span class="line">    </span><br><span class="line">    # list_db</span><br><span class="line">    LOWER_SRC=`all_lower $1`</span><br><span class="line">    LOWER_DST=`all_lower $2`</span><br><span class="line">    </span><br><span class="line">    # LIST_DB</span><br><span class="line">    UPPER_SRC=`all_upper $1`</span><br><span class="line">    UPPER_DST=`all_upper $2`</span><br><span class="line">    </span><br><span class="line">    # List_Db</span><br><span class="line">    FIRST_UPPER_SRC=`first_upper $LOWER_SRC`</span><br><span class="line">    FIRST_UPPER_DST=`first_upper $LOWER_DST`</span><br><span class="line">    </span><br><span class="line">    # 驼峰命名法ListDb </span><br><span class="line">    HUMP_SRC=`erase_symbol $FIRST_UPPER_SRC`</span><br><span class="line">    HUMP_DST=`erase_symbol $FIRST_UPPER_DST`</span><br><span class="line">    </span><br><span class="line">    for src_file in `ls $1.&#123;cpp,h&#125;`</span><br><span class="line">    do</span><br><span class="line">        dst_file=`echo $src_file | sed &quot;s/$STR_SRC/$STR_DST/g&quot;`</span><br><span class="line">    # 复制文件名</span><br><span class="line">        cp $src_file $dst_file</span><br><span class="line">    # 替换文件当中的字符串</span><br><span class="line">        sed -i &quot;s/$UPPER_SRC/$UPPER_DST/g&quot; $dst_file</span><br><span class="line">        sed -i &quot;s/$LOWER_SRC/$LOWER_DST/g&quot; $dst_file</span><br><span class="line">        sed -i &quot;s/$FIRST_UPPER_SRC/$FIRST_UPPER_DST/g&quot; $dst_file</span><br><span class="line">        sed -i &quot;s/$HUMP_SRC/$HUMP_DST/g&quot; $dst_file</span><br><span class="line">    done</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">show_help() &#123;</span><br><span class="line">	echo -ne &quot;\033[31m&quot;</span><br><span class="line">	echo &quot;code_machine.sh doesn&#x27;t get enough arguments&quot;</span><br><span class="line">	echo -ne &quot;\033[0m&quot;</span><br><span class="line">	echo -ne &quot;\033[32m&quot;</span><br><span class="line">	echo &quot;./code_machine.sh &lt;src&gt; &lt;dst&gt; &quot;</span><br><span class="line">	echo &quot;example : ./genKey.sh list_db just_test &quot;</span><br><span class="line">	echo &quot;example : ./genKey.sh list_db this_just_test&quot;</span><br><span class="line">	echo -ne &quot;\033[0m&quot;</span><br><span class="line">	exit</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"># 使用while循环是为了将来可能会扩展参数</span><br><span class="line">while [ -n &quot;$1&quot; ]</span><br><span class="line">do</span><br><span class="line">case &quot;$1&quot; in </span><br><span class="line">    -h) show_help ;;</span><br><span class="line">    --) shift #使用shift将当前的参数双破折线移除</span><br><span class="line">    break ;;</span><br><span class="line">    *) </span><br><span class="line">    main $1 $2</span><br><span class="line">    shift #这里要再移动一下,因为这里使用了2个参数</span><br><span class="line">    ;;</span><br><span class="line">esac</span><br><span class="line">shift</span><br><span class="line">done</span><br><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>我们来测试一下：<br>比如我有一个接口：<code>list_db.h</code>和<code>list.db.cpp</code><br><img src="http://ww4.sinaimg.cn/large/9d13bd87gw1eyl1om6p7cj206f05taac.jpg" alt="list_db.h"></p>
+<p><code>list.cpp</code>也是一样的内容：<br><img src="http://ww2.sinaimg.cn/large/9d13bd87gw1eyl1oza84xj203q02xjrc.jpg" alt="list_db.cpp"></p>
+<p>在命令行下执行</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./code_machine.sh list_db this_just_test</span><br></pre></td></tr></table></figure>
+<p>可以看到在目录下生成了<code>this_just_test.h</code>和<code>this_just_test.cpp</code>:<br><code>just_test.h</code>:<br><img src="http://ww3.sinaimg.cn/large/9d13bd87gw1eyl1ea1kqnj20ga04xwg5.jpg" alt="empty目录"></p>
+<p><code>this_just_test.h</code><br><img src="http://ww1.sinaimg.cn/large/9d13bd87gw1eyl1pb0cg2j207z05oq3g.jpg" alt="this_just_test.h"></p>
+<p><code>this_just_test.cpp</code><br><img src="http://ww4.sinaimg.cn/large/9d13bd87gw1eyl1pj0u1oj205a030mxa.jpg" alt="this_just_test.cpp"></p>
+<h3 id="用shell脚本和crontab自动在豆瓣上顶贴："><a href="#用shell脚本和crontab自动在豆瓣上顶贴：" class="headerlink" title="用shell脚本和crontab自动在豆瓣上顶贴："></a>用shell脚本和<code>crontab</code>自动在豆瓣上顶贴：</h3><p>这个在我的CSDN博客上<a target="_blank" rel="noopener" href="http://blog.csdn.net/u014120684/article/details/44277503">利用linux shell自动顶贴</a>也用过了：</p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/bash/">bash</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/bash/">bash</a><a href="/tags/shell/">shell</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/03/bash3/" data-title="shell脚本总结篇(三)：附上我常用的shell脚本 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/08/socket1/" title="socket连接池SocketPool分析(一):概述">
+  <strong>上一篇：</strong><br/>
+  <span>
+  socket连接池SocketPool分析(一):概述</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/03/bash2/"  title="shell脚本总结篇(二)：shell脚本语法">
+ <strong>下一篇：</strong><br/> 
+ <span>shell脚本总结篇(二)：shell脚本语法
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%80%E5%90%8E%E9%99%84%E4%B8%8A%E4%B8%80%E4%BA%9B%E6%88%91%E5%B8%B8%E7%94%A8%E7%9A%84%E8%84%9A%E6%9C%AC%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">最后附上一些我常用的脚本：</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BD%AF%E4%BB%B6%E5%AE%89%E8%A3%85%E5%AE%8C%E6%88%90%E4%B9%8B%E5%90%8E%E8%AE%BE%E7%BD%AE%E4%B8%BAlinux%E5%BC%80%E6%9C%BA%E5%90%AF%E5%8A%A8"><span class="toc-number">1.1.</span> <span class="toc-text">软件安装完成之后设置为linux开机启动</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E7%A0%81%E8%BD%AC%E6%8D%A2%EF%BC%9A"><span class="toc-number">1.2.</span> <span class="toc-text">编码转换：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9F%A5%E7%9C%8BCPU%E5%92%8C%E5%86%85%E5%AD%98%E7%9A%84%E4%BD%BF%E7%94%A8%E6%83%85%E5%86%B5%EF%BC%8C%E5%B9%B6%E6%89%93%E5%8D%B0%E6%97%A5%E5%BF%97%EF%BC%9A"><span class="toc-number">1.3.</span> <span class="toc-text">查看CPU和内存的使用情况，并打印日志：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%8Exml%E5%BD%93%E4%B8%AD%E8%AF%BB%E5%8F%96redis%E7%9A%84ip%E5%9C%B0%E5%9D%80%E5%92%8C%E7%AB%AF%E5%8F%A3%E5%8F%B7%EF%BC%9A"><span class="toc-number">1.4.</span> <span class="toc-text">从xml当中读取redis的ip地址和端口号：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%9F%E6%88%90%E5%AE%89%E5%85%A8%E7%A7%98%E9%92%A5%E7%94%A8%E4%BA%8E%E9%AA%8C%E8%AF%81%E7%99%BB%E9%99%86%EF%BC%9A"><span class="toc-number">1.5.</span> <span class="toc-text">生成安全秘钥用于验证登陆：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%87%8A%E6%94%BE%E6%89%80%E6%9C%89%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%EF%BC%9A"><span class="toc-number">1.6.</span> <span class="toc-text">释放所有共享内存：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%99%E6%8E%A5%E5%8F%A3%E7%94%A8%E7%9A%84%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90%E5%99%A8%EF%BC%9A"><span class="toc-number">1.7.</span> <span class="toc-text">写接口用的代码生成器：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%A8shell%E8%84%9A%E6%9C%AC%E5%92%8Ccrontab%E8%87%AA%E5%8A%A8%E5%9C%A8%E8%B1%86%E7%93%A3%E4%B8%8A%E9%A1%B6%E8%B4%B4%EF%BC%9A"><span class="toc-number">1.8.</span> <span class="toc-text">用shell脚本和crontab自动在豆瓣上顶贴：</span></a></li></ol></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

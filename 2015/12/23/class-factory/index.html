@@ -1,0 +1,743 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>使用C++的classFactory来模拟JAVA的反射机制 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="与同事聊天的时候，他和我谈到了JAVA的反射机制，并说C++的很多地方比不上JAVA,反射机制就是其中之一。聊着聊着，我们就谈到C++能否模拟一个反射机制，不求做到完美，只要能模拟出一个小功能就可以了。 JAVA的反射首先先介绍一下JAVA的反射机制，JAVA的反射说白了就是根据类名这个字符串来初始化一个对象，还有就是根据对象能获取得到类的方法。 根据类名字符串初始化一个对象：1234567891">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用C++的classFactory来模拟JAVA的反射机制">
+<meta property="og:url" content="http://xiongjun.info/2015/12/23/class-factory/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="与同事聊天的时候，他和我谈到了JAVA的反射机制，并说C++的很多地方比不上JAVA,反射机制就是其中之一。聊着聊着，我们就谈到C++能否模拟一个反射机制，不求做到完美，只要能模拟出一个小功能就可以了。 JAVA的反射首先先介绍一下JAVA的反射机制，JAVA的反射说白了就是根据类名这个字符串来初始化一个对象，还有就是根据对象能获取得到类的方法。 根据类名字符串初始化一个对象：1234567891">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-12-23T11:28:40.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.096Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="反射">
+<meta property="article:tag" content="classFactory">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/23/class-factory/" title="使用C++的classFactory来模拟JAVA的反射机制" itemprop="url">使用C++的classFactory来模拟JAVA的反射机制</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-23T11:28:40.000Z" itemprop="datePublished"> 发表于 2015-12-23</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#JAVA%E7%9A%84%E5%8F%8D%E5%B0%84"><span class="toc-number">1.</span> <span class="toc-text">JAVA的反射</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B9%E6%8D%AE%E7%B1%BB%E5%90%8D%E5%AD%97%E7%AC%A6%E4%B8%B2%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%EF%BC%9A"><span class="toc-number">1.1.</span> <span class="toc-text">根据类名字符串初始化一个对象：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B9%E6%8D%AE%E5%AF%B9%E8%B1%A1%E8%8E%B7%E5%8F%96%E7%B1%BB%E5%90%8D%E5%AD%97%E7%AC%A6%E4%B8%B2"><span class="toc-number">1.2.</span> <span class="toc-text">根据对象获取类名字符串</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%83%B3%E6%B3%95"><span class="toc-number">2.</span> <span class="toc-text">想法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#C-%E5%AE%9E%E7%8E%B0"><span class="toc-number">3.</span> <span class="toc-text">C++实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E5%85%B3%E7%BB%A7%E6%89%BF%E8%87%AAObject"><span class="toc-number">4.</span> <span class="toc-text">有关继承自Object</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E5%85%B3-inline-ClassFactory-amp-ClassFactoryInstance"><span class="toc-number">5.</span> <span class="toc-text">有关 inline ClassFactory&amp; ClassFactoryInstance()</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%82%A3%E5%A6%82%E4%BD%95%E5%9C%A8C-%E7%9A%84%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%BD%93%E4%B8%AD%E4%BF%9D%E8%AF%81singleton%E7%9A%84%E5%AE%89%E5%85%A8%E6%80%A7%EF%BC%9F"><span class="toc-number">5.1.</span> <span class="toc-text">那如何在C++的多线程当中保证singleton的安全性？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E5%85%B3RemoveObject"><span class="toc-number">6.</span> <span class="toc-text">有关RemoveObject</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E6%8A%8AAddObject%E8%AE%BE%E7%BD%AE%E4%B8%BAbool%E5%80%BC%EF%BC%9F"><span class="toc-number">7.</span> <span class="toc-text">为什么要把AddObject设置为bool值？</span></a></li></ol>
+		
+		</div>
+		
+		<p>与同事聊天的时候，他和我谈到了<code>JAVA</code>的反射机制，并说<code>C++</code>的很多地方比不上<code>JAVA</code>,反射机制就是其中之一。聊着聊着，我们就谈到<code>C++</code>能否模拟一个反射机制，不求做到完美，只要能模拟出一个小功能就可以了。</p>
+<h2 id="JAVA的反射"><a href="#JAVA的反射" class="headerlink" title="JAVA的反射"></a>JAVA的反射</h2><p>首先先介绍一下JAVA的反射机制，JAVA的反射说白了就是根据类名这个字符串来初始化一个对象，还有就是根据对象能获取得到类的方法。</p>
+<h3 id="根据类名字符串初始化一个对象："><a href="#根据类名字符串初始化一个对象：" class="headerlink" title="根据类名字符串初始化一个对象："></a>根据类名字符串初始化一个对象：</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">package example;</span><br><span class="line">class test &#123;</span><br><span class="line">  ....</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">class test2 &#123;</span><br><span class="line">    public static void main(String[] args) &#123;</span><br><span class="line">        Class&lt;?&gt; demo=null;</span><br><span class="line">        //这里只是做个示范，把className写死了</span><br><span class="line">        //但是真正在工程环境当中可以从xml配置文件当中读出来</span><br><span class="line">        //从而实现程序在运行期间动态修改，只要修改xml配置文件，demo可以是任何类的对象。</span><br><span class="line">        String className = &quot;example.test&quot;;</span><br><span class="line">        demo=Class.forName(className);</span><br><span class="line">        //TODO something</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这个看起来就是做了一个高级别的抽象，因为接下来<code>demo</code>对象要做的<code>something</code>是与<code>demo</code>这个对象的类是无关的。这个用在<code>protobuf</code>的反序列化当中那就威力无穷了。</p>
+<blockquote>
+<p>想象一下这样的场景：客户端发送了一条经过<code>protobuf</code>序列化之后的消息给服务器。这个消息是经过包装的，有个消息头和消息内容，消息头包括了<code>protobuf</code>序列化使用的类名，序列化之后的长度等等。消息内容就是序列化的数据。然后服务器端的<code>JAVA</code>代码接受到消息之后，先读消息头，取出<code>protobuf</code>序列化使用的类名，根据这个类名构造一个对象，用来将接收到的消息内容反序列化。</p>
+</blockquote>
+<h3 id="根据对象获取类名字符串"><a href="#根据对象获取类名字符串" class="headerlink" title="根据对象获取类名字符串"></a>根据对象获取类名字符串</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">package example;</span><br><span class="line">class test &#123;</span><br><span class="line">    ....</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line">class test2 &#123;</span><br><span class="line">    public static void main(String[] args) &#123;</span><br><span class="line">        test demo=new test();</span><br><span class="line">        //对于一个对象可以马上知道它所属的类型</span><br><span class="line">        System.out.println(demo.getClass().getName());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>当然，<code>JAVA</code>的反射机制远远不止如此，还可以通过<code>newInstance()</code>来实例化其他对象，通过<code>getConstructors()</code>调用其他类的构造函数，通过<code>getInterfaces()</code>返回一个类实现的接口，<code>getSuperclass()</code>能取到父类。反射有非常多的API可以拿过来用。我的同事告诉我，他用的最多的就是根据类名来初始化对象，进而写更高层次的抽象代码。我对<code>JAVA</code>并不是很熟，我的主流语言是<code>C++</code>，但是<code>C++</code>并没有反射功能，google上搜索到了可以通过工厂模式来模拟<code>JAVA</code>的反射功能，仅仅是模拟根据字符串来初始化对象，于是我自己就实现了一遍。</p>
+<h2 id="想法"><a href="#想法" class="headerlink" title="想法"></a>想法</h2><p>最初我的想法是这样的：使用<a target="_blank" rel="noopener" href="http://book.douban.com/subject/1477390/">《代码大全》</a>的表驱动法，在程序启动的时候，把所有的对象初始化一份实例，然后在表中放入类名的字符串和这份实例的指针的映射。当需要用到反射的地方，根据提供的类名字符串查表，将实例的指针取出来。这种方法当然是不可能的，首先把所有的对象都初始化一份实例会严重拖慢程序的速度，其次，创建那么多实例，并不是全部用到，造成大量的浪费。<br>所以好方法就是等到需要这个实例的时候再创建，那么办法就是在表中不存实例的指针，而是保存构造函数，等到传递类名字符串的时候，取出相应的构造函数，构造出一个对象，并返回其指针。</p>
+<p>但是难点就在<code>C++</code>如何在<code>map</code>当中保存构造函数。要用<code>C++</code>来做这件事情的话，应该是这个样子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">//伪代码：</span><br><span class="line">map: &#123;</span><br><span class="line">  &quot;FirstClass&quot; :　FirstClass(bool),</span><br><span class="line">  &quot;SecondClass&quot; :　SecondClass(int),</span><br><span class="line">  &quot;ThirdClass&quot; :　ThirdClass(double),</span><br><span class="line">  &quot;FourthClass&quot; :　FourthClass(string),</span><br><span class="line">  &quot;FifthClass&quot; :　FifthClass(const char*),</span><br><span class="line">   ..........</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>保存函数指针肯定是不行的，原因：构造函数的每个参数都不同，而<code>map</code>如果保存函数指针的话，需要类型一致，而且就算都传无参的构造函数，由于构造函数根本没有返回类型，不可能做出函数指针指向它。</p>
+<p>那能不能不传构造函数的指针，而是在每一个类当中定义一个<code>Instance()</code>函数，函数中实例化这个类的一个对象并返回。那在表当中就保存Instance()函数的指针？<br>也不行，原因是<code>Instance()</code>函数是<code>member function</code>,要想调用一般的<code>member function</code>，除非这个<code>member function</code>是<code>static</code>类型的，否则就必须要用一个对象去调用。</p>
+<p>那能不能在改一步，使用<a target="_blank" rel="noopener" href="http://book.douban.com/subject/1842426/">《Effective C++》</a>当中<code>条款4</code>的<code>singleton</code>模式，写成这种形式:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">static MyClass&amp; MyClass::Instance() &#123;</span><br><span class="line">  static MyClass myInstance;</span><br><span class="line">  return myInstance;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这样总行了吧？现在使用<code>Instance()</code>函数这样用就可以了,根本就不需要先存在对象了</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">MyClass::Instance();</span><br></pre></td></tr></table></figure>
+<p>而且为了匹配函数指针，可以这样写:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">//定义一个函数指针, 无参数，返回值为void*</span><br><span class="line">typedef void* (*myInstance)();</span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">static void* MyClass::Instance() &#123;</span><br><span class="line">  static MyClass myInstance;</span><br><span class="line">  return (void*)&amp;myInstance;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void* YourClass::Instance() &#123;</span><br><span class="line">  static YourClass yourInstance;</span><br><span class="line">  return (void*)&amp;yourInstance;</span><br><span class="line">&#125;</span><br><span class="line">//这样MyClass::Instance()和YourClass::Instance()就能匹配myInstance这个函数指针了</span><br></pre></td></tr></table></figure>
+<p>这个策略按照常理是可以的。但是确定要这么做吗？这样做就意味着为了模拟一下<code>JAVA</code>的反射机制，在每个类的定义中都需要加上这个<code>singleton</code>代码，如果类很多的话，这个工作量是很大的，虽然可以写一个批量插入的程序减少工作量，但是这样从程序设计的角度真的好吗？为了模拟一个功能而修改所有的代码？我不知道什么场景下值得这么做，但是至少我是不会这么做的。</p>
+<p>我的最后方法是，不用上面的<code>singleton</code>的<code>member function</code>，而是写一个<code>non-member function</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">static void* CreateClass##class_name ()&#123;	    \</span><br><span class="line">		return (void*)(new class_name());			\</span><br><span class="line">	&#125;;						</span><br></pre></td></tr></table></figure>
+<p>首先要提到的是这是一个在宏当中的函数，把这个函数写到宏当中有2个目的：</p>
+<ul>
+<li>减少代码量。</li>
+<li>传递的宏参数是class_name，这个参数不需要加引号变成字符串形式。这个很重要，这意味着我可以这样用而保证合法：<code>IMPL_CLASS_CREATE(MyClass)</code>，其中<code>MyClass</code>不需要加上引号，从而能直接实现<code>new MyClass()</code>。如果不是宏当中的函数，或者直接说是在编译期间而不是预处理期间的话，传递不加引号的<code>MyClass</code>绝对非法，如果传递了带引号的<code>MyClass</code>，就说明传了一个字符串，那试问如何实现<code>new MyClass()</code>?</li>
+</ul>
+<p>接下来请看我的<code>C++</code>实现，后面会附带讲解。</p>
+<h2 id="C-实现"><a href="#C-实现" class="headerlink" title="C++实现"></a>C++实现</h2><p>代码比较短，我就直接贴上来了：<br><code>class_factory.h</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line">#ifndef MQUEUE_INCLUDE_CLASS_FACTORY_H_</span><br><span class="line">#define MQUEUE_INCLUDE_CLASS_FACTORY_H_</span><br><span class="line"></span><br><span class="line">#include &quot;object.h&quot;</span><br><span class="line">#include &lt;string&gt;</span><br><span class="line">#include &lt;map&gt;</span><br><span class="line"></span><br><span class="line">using std::string;</span><br><span class="line">using std::map;</span><br><span class="line">using std::make_pair;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">typedef void* (*ObjectCreate_t)();</span><br><span class="line"></span><br><span class="line">/*</span><br><span class="line"> * 使用factory模式来模拟JAVA的反射机制</span><br><span class="line"> */</span><br><span class="line">class ClassFactory : public Object &#123;</span><br><span class="line"> public:</span><br><span class="line">  ClassFactory();</span><br><span class="line">  ClassFactory(const ClassFactory&amp;) = delete;</span><br><span class="line">  ClassFactory&amp; operator=(const ClassFactory&amp;) = delete;</span><br><span class="line">  virtual ~ClassFactory();</span><br><span class="line">  void Dump() const;</span><br><span class="line"></span><br><span class="line"> public:</span><br><span class="line"></span><br><span class="line">  </span><br><span class="line">  bool AddObject(const string&amp; className, ObjectCreate_t pCreate);</span><br><span class="line">  bool AddObject(const char* className, ObjectCreate_t pCreate);</span><br><span class="line">  void* GetObject(const string&amp; className);</span><br><span class="line">  void* GetObject(const char* className);</span><br><span class="line"></span><br><span class="line">  map&lt;string, ObjectCreate_t&gt; GetMap() const;</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  map&lt;string, ObjectCreate_t&gt; factoryMap_;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">/*</span><br><span class="line"> * 把这个singleton设置为inline模式也是遵守《Effective C++》的条款4</span><br><span class="line"> */</span><br><span class="line">inline ClassFactory&amp; ClassFactoryInstance() &#123;</span><br><span class="line">  static ClassFactory sInstance;</span><br><span class="line">  return sInstance;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">#define DECLARE_CLASS_CREATE(class_name)	    	\</span><br><span class="line">	static void* CreateClass##class_name ();</span><br><span class="line"></span><br><span class="line">#define IMPL_CLASS_CREATE(class_name)	            \</span><br><span class="line">	static void* CreateClass##class_name ()&#123;	    \</span><br><span class="line">		return (void*)(new class_name());			\</span><br><span class="line">	&#125;;											    \</span><br><span class="line">	static bool _##class_name##_Unused __attribute__((unused))= ClassFactoryInstance().AddObject(#class_name, CreateClass##class_name);</span><br><span class="line"></span><br><span class="line">//#的作用是在class_name的左右两边都加上双引号，##的作用是连接两个字符串</span><br><span class="line"></span><br><span class="line">#endif /* MQUEUE_INCLUDE_CLASSS_FACTORY_H_ */</span><br></pre></td></tr></table></figure>
+
+<p><code>class_factory.cpp</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line">#include &quot;MQueue/class_factory.h&quot;</span><br><span class="line"></span><br><span class="line">ClassFactory::ClassFactory() &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">ClassFactory::~ClassFactory() &#123;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void ClassFactory::Dump() const &#123;</span><br><span class="line">  printf(&quot;\n=====ClassFactory Dump START ========== \n&quot;);</span><br><span class="line">  int count = 0;</span><br><span class="line">  for (auto it = factoryMap_.begin(); it!=factoryMap_.end(); ++it) &#123;</span><br><span class="line">    printf(&quot;count==%d &quot;, count);</span><br><span class="line">    printf(&quot;className=%s &quot;, it-&gt;first.c_str());</span><br><span class="line">    printf(&quot;CreateObject_t=%p &quot;, it-&gt;second);</span><br><span class="line">    printf(&quot;\n&quot;);</span><br><span class="line">    ++count;</span><br><span class="line">  &#125;</span><br><span class="line">  printf(&quot;\n===ClassFactory DUMP END ============\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">bool ClassFactory::AddObject(const string&amp; className, ObjectCreate_t pCreate) &#123;</span><br><span class="line">  factoryMap_.insert(make_pair(className, pCreate));</span><br><span class="line">  return true;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">bool ClassFactory::AddObject(const char* className, ObjectCreate_t pCreate) &#123;</span><br><span class="line">  string class_name(className);</span><br><span class="line">  factoryMap_.insert(make_pair(class_name, pCreate));</span><br><span class="line">  return true;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void* ClassFactory::GetObject(const string&amp; className) &#123;</span><br><span class="line">  if (factoryMap_.count(className) == 1) &#123;</span><br><span class="line">    //这里就调用CreateObject_t()</span><br><span class="line">    return factoryMap_[className]();</span><br><span class="line">  &#125; else &#123;</span><br><span class="line">	return NULL;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void* ClassFactory::GetObject(const char* className) &#123;</span><br><span class="line">  string class_name(className);</span><br><span class="line">  return GetObject(class_name);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">/*</span><br><span class="line"> * 我在考虑这里要不要使用std::move(factoryMap_)</span><br><span class="line"> */</span><br><span class="line">map&lt;string, ObjectCreate_t&gt; ClassFactory::GetMap() const &#123;</span><br><span class="line">  return factoryMap_;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h2 id="有关继承自Object"><a href="#有关继承自Object" class="headerlink" title="有关继承自Object"></a>有关继承自Object</h2><p><code>Object</code>就是一个抽象类，设计它的原因是这样的，我开始在代码当中写的并不是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">typedef void* (*ObjectCreate_t)();</span><br></pre></td></tr></table></figure>
+<p>而是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">typedef Object* (*ObjectCreate_t)();</span><br></pre></td></tr></table></figure>
+<p>因为我最初的想法是想利用<code>C++</code>的多态性质来模拟反射，当时的想法是为了能将函数指针统一起来放入<code>factoryMap_</code>当中，第一想法就是使用基类的指针，根本没想到<code>void*</code>，使用<code>Object*</code>的话就导致实例化出来的对象只能调用<code>virtual</code>函数。在最开始的时候写代码写的还很顺畅，到了后来我才碰壁了，才改成了<code>void*</code>。</p>
+<h2 id="有关-inline-ClassFactory-amp-ClassFactoryInstance"><a href="#有关-inline-ClassFactory-amp-ClassFactoryInstance" class="headerlink" title="有关 inline ClassFactory&amp; ClassFactoryInstance()"></a>有关 <code>inline ClassFactory&amp; ClassFactoryInstance()</code></h2><p>关于这个函数的设计有必要展开讨论。首先，既然设计出了这个<code>factory</code>，需要用到它的场景就是这样子：整个代码当中只有一份<code>factory</code>，功能就是生产对象。所以任何时候我将<code>ObjectCreate_t</code>这个函数指针放入<code>factory</code>当中的时候，这个<code>factory</code>一定是唯一的。<br>如果比较难理解的话可以这样想：如果代码中存在两份<code>factory</code>，那么我要将<code>ObjectCreate_t</code>这个函数指针放入<code>factory</code>当中的时候，应该放入哪一个？所以只有一份<code>factory</code>就能避免这个问题。</p>
+<p>如何在整份代码中只设置一份<code>factory</code>？全局变量一定是不行的。首先就是变量名的冲突，然后也不能保证其他人要用我的代码的时候会不会设置两个全局变量的<code>factory</code>。要替代全局变量的办法就是使用<code>singleton</code>模式，使用<code>ClassFactory::Instance()</code>的方法来调用绝对不会有变量名的冲突，而且也不可能有两个<code>factory</code>。</p>
+<p>既然决定了要使用<code>singleton</code>的方式来实现，接下来有必要讨论一下用<a target="_blank" rel="noopener" href="http://book.douban.com/subject/1842426/">《Effective C++》</a>当中<code>条款4</code>和<code>条款21</code>。</p>
+<p>条款21说的是：必须返回对象时，别妄想返回其reference</p>
+<p>而我的<code>singleton</code>设计是这样子的，而且条款4当中Meyers自己也写了这么一个<code>singleton</code>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">ClassFactory&amp; Instance() &#123;</span><br><span class="line">	static ClassFactory sInstance;</span><br><span class="line">	return sInstance;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>是不是Meyers搞错了？别急，接着往下看，在条款21当中说到了：</p>
+<blockquote>
+<p>请记住：绝对不要返回pointer或reference指向一个local stack对象，或返回reference指向一个heap-allocated对象，或返回pointer或reference指向一个local static对象而有可能同时需要多个这样的对象。条款4已经为”在单线程环境中合理返回reference指向一个local static对象”提供了一份设计实例。</p>
+</blockquote>
+<p>恍然大悟！当在单线程环境当中，如果不需要多个这样的对象，那么返回pointer或reference指向一个local static对象是可以这么做的。<code>singleton</code>就是单例的设计模式，所以只要保证单线程就可以了。</p>
+<h3 id="那如何在C-的多线程当中保证singleton的安全性？"><a href="#那如何在C-的多线程当中保证singleton的安全性？" class="headerlink" title="那如何在C++的多线程当中保证singleton的安全性？"></a>那如何在C++的多线程当中保证<code>singleton</code>的安全性？</h3><p>人家Meyers都说了不要在多线程中使用<code>singleton</code>，那就不要用了。但是如果不听他的劝告，非要用的话，用<a target="_blank" rel="noopener" href="http://book.douban.com/subject/1842426/">《Effective C++》</a>当中<code>条款4</code>也告诉了方法：</p>
+<blockquote>
+<p>任何一种non-const static对象，不论它是local还是non-local，在多线程环境当中”等待某事发生”都会有麻烦,处理这个麻烦的一般做法是：在程序的单线程启动阶段(single-thread startup portion)手工调用所有的reference-returning函数，这可以消除与初始化有关的”竞速形势(race conditions)”</p>
+</blockquote>
+<p>Meyers还是建议我们在多线程的单线程启动阶段去用。意思就是说，程序在刚刚运行，多线程还没启动的时候，用这个<code>singleton</code>是没问题的。</p>
+<h2 id="有关RemoveObject"><a href="#有关RemoveObject" class="headerlink" title="有关RemoveObject"></a>有关RemoveObject</h2><p>我没有在<code>ClassFactory</code>当中定义删除的操作，主要就是为了安全。因为我觉得对于这个工厂来说，删除掉函数指针根本没有任何实际意义,胡乱把这个接口提供出去反而会造成危险。</p>
+<h2 id="为什么要把AddObject设置为bool值？"><a href="#为什么要把AddObject设置为bool值？" class="headerlink" title="为什么要把AddObject设置为bool值？"></a>为什么要把<code>AddObject</code>设置为<code>bool</code>值？</h2><p>要回答这个问题，请看这个宏：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">#define IMPL_CLASS_CREATE(class_name)	            \</span><br><span class="line">	static void* CreateClass##class_name ()&#123;	    \</span><br><span class="line">		return (void*)(new class_name());			\</span><br><span class="line">	&#125;;											    \</span><br><span class="line">	static bool _##class_name##_Unused __attribute__((unused))= ClassFactory::Instance().AddObject(#class_name, CreateClass##class_name);</span><br><span class="line"></span><br><span class="line">//#的作用是在class_name的左右两边都加上双引号，##的作用是连接两个字符串</span><br></pre></td></tr></table></figure>
+
+<p>那么，当我执行这段代码的时候：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">IMPL_CLASS_CREATE(ParseJsonObj);</span><br></pre></td></tr></table></figure>
+
+<p>实际上执行的是这段代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">static void* CreateClassParseJsonObj ()&#123;	    \</span><br><span class="line">		return (void*)(new ParseJsonObj());			\</span><br><span class="line">	&#125;;											    \</span><br><span class="line">	static bool _ParseJsonObj_Unused __attribute__((unused))= ClassFactory::Instance().AddObject(&quot;ParseJsonObj&quot;, CreateClassParseJsonObj);</span><br></pre></td></tr></table></figure>
+
+<p>这个<code>__attribute__((unused))</code> 是编译器的内置宏，告诉编译器如果没有用到<code> _ParseJsonObj_bUnused</code>这个参数的时候，不要抛出</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">WARNING: warning &quot;unused parameter xxx”</span><br></pre></td></tr></table></figure>
+<p>这个警告。</p>
+<p>那么真正的实现就是这个样子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">static void* CreateClassParseJsonObj ()&#123;	    \</span><br><span class="line">		return (void*)(new ParseJsonObj());			\</span><br><span class="line">&#125;;											    \</span><br><span class="line">static bool _ParseJsonObj_Unused = ClassFactory::Instance().AddObject(&quot;ParseJsonObj&quot;, CreateClassParseJsonObj);</span><br></pre></td></tr></table></figure>
+<p>请看<code>_ParseJsonObj_Unused</code>这个参数，到不是说这个参数有多重要，你看我给它起的名字是unused就知道以后用不上这个参数了，但是如果<code>AddObj</code>的返回值为<code>void</code>，那么这里就应该是:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ClassFactory::Instance().AddObject(&quot;ParseJsonObj&quot;, CreateClassParseJsonObj);</span><br></pre></td></tr></table></figure>
+<p>这行代码是不合法的。因为<code>C++</code>不允许在全局的作用域内调用函数。在<code>main</code>函数之外调用这个宏<code>IMPL_CLASS_CREATE(ParseJsonObj)</code>就是在全局作用域当中。</p>
+<p>为了让这行代码合法应该怎么做呢？<br>请看：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">static bool _ParseJsonObj_Unused = ClassFactory::Instance().AddObject(&quot;ParseJsonObj&quot;, CreateClassParseJsonObj);</span><br></pre></td></tr></table></figure>
+<p>这行代码就是初始化一个静态全局变量了，C++就判断合法。把这个<code>_ParseJsonObj_Unused</code>设置为<code>static</code>的目的只是为了不让其他文件访问，利用了<code>static</code>变量只能在本文件中访问的特性。因为它根本没有用，就怕其他文件乱改。</p>
+<p>为什么不能在<code>main</code>函数当中使用这个宏<code>IMPL_CLASS_CREATE(ParseJsonObj)</code>？这样的话<code>ClassFactory::Instance().AddObject(&quot;ParseJsonObj&quot;, CreateClassParseJsonObj);</code>不就合法了吗？<br>不错，这样子<code>ClassFactory::Instance().AddObject(&quot;ParseJsonObj&quot;, CreateClassParseJsonObj);</code>是合法了，但是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">static void* CreateClassParseJsonObj ()&#123;	    \</span><br><span class="line">		return (void*)(new ParseJsonObj());			\</span><br><span class="line">&#125;;	</span><br></pre></td></tr></table></figure>
+<p>却又不合法了。因为C++不允许在函数当中又定义函数。</p>
+<p>所以为了能让宏合法，这里的<code>AddObject</code>必须要有返回值，返回<code>bool</code>值的原因是<code>bool</code>只占一个字节，而<code>int</code>要占四个字节。</p>
+<p>测试代码请参见:<a target="_blank" rel="noopener" href="https://github.com/adairjun/MQueue/blob/master/gtest/test_class_factory.cpp">https://github.com/adairjun/MQueue/blob/master/gtest/test_class_factory.cpp</a></p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">设计模式</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/反射/">反射</a><a href="/tags/classFactory/">classFactory</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/23/class-factory/" data-title="使用C++的classFactory来模拟JAVA的反射机制 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2016/01/01/2016/" title="2016，又是崭新的开始了">
+  <strong>上一篇：</strong><br/>
+  <span>
+  2016，又是崭新的开始了</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/20/log/"  title="自用日志库logobj">
+ <strong>下一篇：</strong><br/> 
+ <span>自用日志库logobj
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#JAVA%E7%9A%84%E5%8F%8D%E5%B0%84"><span class="toc-number">1.</span> <span class="toc-text">JAVA的反射</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B9%E6%8D%AE%E7%B1%BB%E5%90%8D%E5%AD%97%E7%AC%A6%E4%B8%B2%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%EF%BC%9A"><span class="toc-number">1.1.</span> <span class="toc-text">根据类名字符串初始化一个对象：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B9%E6%8D%AE%E5%AF%B9%E8%B1%A1%E8%8E%B7%E5%8F%96%E7%B1%BB%E5%90%8D%E5%AD%97%E7%AC%A6%E4%B8%B2"><span class="toc-number">1.2.</span> <span class="toc-text">根据对象获取类名字符串</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%83%B3%E6%B3%95"><span class="toc-number">2.</span> <span class="toc-text">想法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#C-%E5%AE%9E%E7%8E%B0"><span class="toc-number">3.</span> <span class="toc-text">C++实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E5%85%B3%E7%BB%A7%E6%89%BF%E8%87%AAObject"><span class="toc-number">4.</span> <span class="toc-text">有关继承自Object</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E5%85%B3-inline-ClassFactory-amp-ClassFactoryInstance"><span class="toc-number">5.</span> <span class="toc-text">有关 inline ClassFactory&amp; ClassFactoryInstance()</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%82%A3%E5%A6%82%E4%BD%95%E5%9C%A8C-%E7%9A%84%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%BD%93%E4%B8%AD%E4%BF%9D%E8%AF%81singleton%E7%9A%84%E5%AE%89%E5%85%A8%E6%80%A7%EF%BC%9F"><span class="toc-number">5.1.</span> <span class="toc-text">那如何在C++的多线程当中保证singleton的安全性？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E5%85%B3RemoveObject"><span class="toc-number">6.</span> <span class="toc-text">有关RemoveObject</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E6%8A%8AAddObject%E8%AE%BE%E7%BD%AE%E4%B8%BAbool%E5%80%BC%EF%BC%9F"><span class="toc-number">7.</span> <span class="toc-text">为什么要把AddObject设置为bool值？</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

@@ -1,0 +1,681 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>socket连接池SocketPool分析(四)：socket连接控制SocketObj | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="复习完了基础知识之后，现在就可以开始写一个socket连接控制的对象了。代码存在于我的github上：SocketPool socket_obj.h 12345678910111213141516171819202122232425262728293031323334353637383940414243444546474849505152535455565758596061626364656667">
+<meta property="og:type" content="article">
+<meta property="og:title" content="socket连接池SocketPool分析(四)：socket连接控制SocketObj">
+<meta property="og:url" content="http://xiongjun.info/2015/12/08/socket4/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="复习完了基础知识之后，现在就可以开始写一个socket连接控制的对象了。代码存在于我的github上：SocketPool socket_obj.h 12345678910111213141516171819202122232425262728293031323334353637383940414243444546474849505152535455565758596061626364656667">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-12-08T13:54:25.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.091Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="socket">
+<meta property="article:tag" content="SocketPoll">
+<meta property="article:tag" content="SocketObj">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/08/socket4/" title="socket连接池SocketPool分析(四)：socket连接控制SocketObj" itemprop="url">socket连接池SocketPool分析(四)：socket连接控制SocketObj</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-08T13:54:25.000Z" itemprop="datePublished"> 发表于 2015-12-08</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			
+		
+		</div>
+		
+		<p>复习完了基础知识之后，现在就可以开始写一个socket连接控制的对象了。<br>代码存在于我的github上：<a target="_blank" rel="noopener" href="https://github.com/adairjun/SocketPool">SocketPool</a></p>
+<p><code>socket_obj.h</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br></pre></td><td class="code"><pre><span class="line">// Copyright </span><br><span class="line">// License</span><br><span class="line">// Author: adairjun</span><br><span class="line">// This is used to construct a socket connection obj </span><br><span class="line"></span><br><span class="line">#ifndef SOCKETPOOL_INCLUDE_SOCKET_OBJ_H</span><br><span class="line">#define SOCKETPOOL_INCLUDE_SOCKET_OBJ_H</span><br><span class="line"></span><br><span class="line">#include &lt;string&gt;</span><br><span class="line">#include &lt;utility&gt;</span><br><span class="line">#include &lt;boost/shared_ptr.hpp&gt;</span><br><span class="line">#include &lt;glog/logging.h&gt;</span><br><span class="line"></span><br><span class="line">using std::string;</span><br><span class="line">using std::pair;</span><br><span class="line">using std::make_pair;</span><br><span class="line"></span><br><span class="line">class SocketObj;</span><br><span class="line"></span><br><span class="line">// 使用shared_ptr来替换SocketObj*</span><br><span class="line">typedef boost::shared_ptr&lt;SocketObj&gt;SocketObjPtr;</span><br><span class="line"></span><br><span class="line">class SocketObj &#123;</span><br><span class="line"> public:</span><br><span class="line">  // 虽然作为client的话.backlog用不到,但是这里还是要写入构造函数当中</span><br><span class="line">  explicit SocketObj(string host, unsigned port, int backlog);</span><br><span class="line">  explicit SocketObj(string host, unsigned port);</span><br><span class="line">  explicit SocketObj(int sockFD);</span><br><span class="line">  virtual ~SocketObj();</span><br><span class="line">  void Dump() const;</span><br><span class="line"></span><br><span class="line">  string ErrorMessage();</span><br><span class="line">  </span><br><span class="line">  /**</span><br><span class="line">   * 设置套接字的阻塞模式,nonblock为true时是非阻塞模式</span><br><span class="line">   */</span><br><span class="line">  int SetNonBlock(bool nonblock); </span><br><span class="line"></span><br><span class="line">  /**</span><br><span class="line">   * 由于sockaddr_in.sin_addr.s_addr类型是unsigned类型</span><br><span class="line">   * 这个函数的作用就是把ip地址转换成s_addr能接受的类型</span><br><span class="line">   * 方便构建sockaddr_in</span><br><span class="line">   */</span><br><span class="line">  unsigned TranslateAddress();</span><br><span class="line">  </span><br><span class="line">  /**</span><br><span class="line">   * 封装的Bind函数</span><br><span class="line">   */</span><br><span class="line">  bool Bind();</span><br><span class="line"></span><br><span class="line">  /**</span><br><span class="line">   * 封装的listen函数</span><br><span class="line">   */</span><br><span class="line">  bool Listen();</span><br><span class="line"></span><br><span class="line">  /**</span><br><span class="line">   * 封装的accept函数,由于accept函数返回一个套接字,这里直接返回int</span><br><span class="line">   */</span><br><span class="line">  int Accept();</span><br><span class="line">   </span><br><span class="line">  /**</span><br><span class="line">   * 封装的connect函数</span><br><span class="line">   */</span><br><span class="line">  bool Connect();</span><br><span class="line"></span><br><span class="line">  /**</span><br><span class="line">   * 封装的close函数</span><br><span class="line">   */</span><br><span class="line">  bool Close();</span><br><span class="line"></span><br><span class="line">  /**</span><br><span class="line">   * 获取套接字</span><br><span class="line">   */</span><br><span class="line">  int Get() const &#123;</span><br><span class="line">    return sockFD_;</span><br><span class="line">  &#125;</span><br><span class="line"> </span><br><span class="line">  /**</span><br><span class="line">   * 封装的getpeername函数,返回远端地址和端口的map</span><br><span class="line">   */</span><br><span class="line">  pair&lt;string, int&gt; GetPeer();</span><br><span class="line"></span><br><span class="line">  /**</span><br><span class="line">   * 封装的getsockname函数,返回本地地址和端口的map</span><br><span class="line">   */</span><br><span class="line">  pair&lt;string, int&gt; GetSock();</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  // 通过socket函数构建的套接字</span><br><span class="line">  int sockFD_;</span><br><span class="line"> </span><br><span class="line">  string strHost_;</span><br><span class="line">  unsigned iPort_;</span><br><span class="line">  </span><br><span class="line">  //本来需要一个sockaddr_in类型，来存储ip地址和端口号,但是在构造函数当中很难构造出一个完整的类型,总会报错incomplete type</span><br><span class="line">  //那么就无法将sockaddr_in写进成员当中</span><br><span class="line"></span><br><span class="line">  //用于listen函数的backlog_,决定内核为socket排队的最大连接个数</span><br><span class="line">  //从配置文件当中读取</span><br><span class="line">  int backlog_;</span><br><span class="line"></span><br><span class="line">  //错误信息</span><br><span class="line">  string strErrorMessage_;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">#endif /* SOCKETPOOL_INCLUDE_SOCKET_OBJ_H */</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>相信我的头文件写的简单易懂，但是还有几点我需要说明一下:</p>
+<ul>
+<li>1，重载了三个构造函数：分别适配于服务器，客户端和通过描述符来构造SocketObj对象</li>
+<li>2，使用RAII的方法，用析构函数来处理<code>close</code>，把socket的开启与关闭和SocketObj的生命期绑定在一起。</li>
+<li>3，Dump函数是用来debug的函数</li>
+<li>4，本来我是想把sockaddr_in这些个结构体也一起封装进private当中去，但是由SocketObj的构造函数来构造sockaddr_in结构体的话，那么就需要将sockaddr_in这个结构体补充完整，而我们使用的只是其中的一部分而已，就是ip地址和端口而已，徒增无用的信息反而会影响代码。所以很多函数才会多加几行<code>struct sockaddr_in sAddr......</code>代码</li>
+<li>strErrorMessage_则是我把错误信息封装进去了，而不是直接使用终端打印出来</li>
+<li>要说明的是TranslateAddress()这个函数，一般在客户端当中是用<code>inet_pton(AD_INET, &quot;127.0.0.1&quot;, &amp;servaddr.sin_addr)</code>这种形式来指定服务器的ip地址，能不能像服务器那样<code>servaddr.sin_addr.s_addr=INADDR_ANY</code>的形式呢？这个TranslateAddress()函数就是用来解决这个问题的。它把字符串直接翻译成int型，所以能够被<code>servaddr.sin_addr.s_addr</code>接收</li>
+<li>由于为了服务器的便捷性，我在Listen()函数当中加入了Bind()函数，以后要使用服务器的<code>bind</code>和<code>listen</code>直接使用Listen()函数就可以</li>
+<li>GetPeer()函数和GetSock()函数我使用了pair&lt;string, int&gt;来保存信息，pair的first是ip地址，second是端口号。</li>
+</ul>
+<p><code>socket_obj.cpp</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br></pre></td><td class="code"><pre><span class="line">#include &quot;SocketPool/socket_obj.h&quot;</span><br><span class="line">#include &lt;sys/socket.h&gt;</span><br><span class="line">#include &lt;netinet/in.h&gt;</span><br><span class="line">#include &lt;arpa/inet.h&gt;</span><br><span class="line">#include &lt;net/if.h&gt;</span><br><span class="line">#include &lt;netdb.h&gt;</span><br><span class="line">#include &lt;sys/ioctl.h&gt;</span><br><span class="line">#include &lt;unistd.h&gt;</span><br><span class="line">#include &lt;fcntl.h&gt;</span><br><span class="line">#include &lt;string.h&gt;</span><br><span class="line"></span><br><span class="line">SocketObj::SocketObj(string host, unsigned port, int backlog)</span><br><span class="line">    : strHost_(host),</span><br><span class="line">      iPort_(port),</span><br><span class="line">      backlog_(backlog) &#123; </span><br><span class="line">    LOG(INFO) &lt;&lt; &quot;consutor function HOST:[&quot; &lt;&lt; host &lt;&lt; &quot;]&quot; </span><br><span class="line">              &lt;&lt; &quot; PORT:[&quot; &lt;&lt; port &lt;&lt; &quot;]&quot; </span><br><span class="line">              &lt;&lt; &quot; BACKLOG:[&quot; &lt;&lt; backlog &lt;&lt; &quot;]&quot;;</span><br><span class="line">    sockFD_ = -1;</span><br><span class="line">&#125; </span><br><span class="line"></span><br><span class="line">SocketObj::SocketObj(string host, unsigned port)</span><br><span class="line">    : strHost_(host),</span><br><span class="line">      iPort_(port) &#123;</span><br><span class="line">    LOG(INFO) &lt;&lt; &quot;consutor function HOST:[&quot; &lt;&lt; host &lt;&lt; &quot;]&quot; </span><br><span class="line">              &lt;&lt; &quot; PORT:[&quot; &lt;&lt; port &lt;&lt; &quot;]&quot;; </span><br><span class="line">    backlog_ = 0;</span><br><span class="line">    sockFD_ = -1;</span><br><span class="line">&#125; </span><br><span class="line"></span><br><span class="line">SocketObj::SocketObj(int sockFD)</span><br><span class="line">    : sockFD_(sockFD) &#123;</span><br><span class="line">    strHost_ = &quot;&quot;;</span><br><span class="line">    iPort_ = 0;</span><br><span class="line">    backlog_ = 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">SocketObj::~SocketObj() &#123;</span><br><span class="line">  Close();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void SocketObj::Dump() const &#123;</span><br><span class="line">  printf(&quot;\n=====SocketObj Dump START ========== \n&quot;);</span><br><span class="line">  printf(&quot;sockFD_=%d&quot;, sockFD_);</span><br><span class="line">  printf(&quot;strHost_=%s&quot;, strHost_.c_str());</span><br><span class="line">  printf(&quot;iPort_=%d&quot;, iPort_);</span><br><span class="line">  printf(&quot;backlog_=%d&quot;, backlog_);</span><br><span class="line">  printf(&quot;strErrorMessage_=%d&quot;, strErrorMessage_.c_str());</span><br><span class="line">  printf(&quot;\n===SocketObj DUMP END ============\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">string SocketObj::ErrorMessage() &#123;</span><br><span class="line">  return strErrorMessage_;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int SocketObj::SetNonBlock(bool nonblock) &#123;</span><br><span class="line">  int flag = fcntl(sockFD_, F_GETFL, 0);</span><br><span class="line">  if (nonblock) &#123;</span><br><span class="line">    // 设置成非阻塞模式</span><br><span class="line">    return fcntl(sockFD_, F_SETFL, flag | O_NONBLOCK);</span><br><span class="line">  &#125; else &#123;</span><br><span class="line">    //设置为阻塞模式</span><br><span class="line">    return fcntl(sockFD_, F_SETFL, flag &amp; ~O_NONBLOCK);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">unsigned SocketObj::TranslateAddress() &#123;</span><br><span class="line">  if (strHost_ == &quot;&quot;)</span><br><span class="line">    return INADDR_ANY; </span><br><span class="line">  //return inet_addr(strHost_.c_str());</span><br><span class="line">  //使用gethostbyname比使用inet_addr更好,从函数名上看比较清晰</span><br><span class="line">  //而且还能根据域名来使用</span><br><span class="line">  struct hostent *pstrHost_ = gethostbyname(strHost_.c_str());</span><br><span class="line">  if (pstrHost_ == NULL) &#123;</span><br><span class="line">     return inet_addr(strHost_.c_str());</span><br><span class="line">  &#125;</span><br><span class="line">  return *(int*)(pstrHost_-&gt;h_addr);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">bool SocketObj::Bind() &#123;</span><br><span class="line">  Close();</span><br><span class="line">  sockFD_ = socket(AF_INET, SOCK_STREAM, 0);</span><br><span class="line">  if (sockFD_ == -1) &#123;</span><br><span class="line">    strErrorMessage_ = &quot;can&#x27;t bind, because sockFD_ = -1&quot;;</span><br><span class="line">    return false;</span><br><span class="line">  &#125;</span><br><span class="line">  struct sockaddr_in sAddr;</span><br><span class="line">  memset(&amp;sAddr, 0, sizeof(sAddr));</span><br><span class="line">  sAddr.sin_addr.s_addr = TranslateAddress();</span><br><span class="line">  sAddr.sin_family = AF_INET;</span><br><span class="line">  sAddr.sin_port = htons(iPort_);</span><br><span class="line">  if (bind(sockFD_, (struct sockaddr*)&amp;sAddr, sizeof(sAddr)) != 0) &#123;</span><br><span class="line">    Close();</span><br><span class="line">    strErrorMessage_ = &quot;bind != 0&quot;;</span><br><span class="line">    return false;</span><br><span class="line">  &#125; </span><br><span class="line">  return true;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">bool SocketObj::Listen() &#123;</span><br><span class="line">  Close();</span><br><span class="line">  Bind();</span><br><span class="line">  if (listen(sockFD_, backlog_) != 0) &#123;</span><br><span class="line">    Close();</span><br><span class="line">    strErrorMessage_ = &quot;can&#x27;t listen, because listen() != 0&quot;;</span><br><span class="line">    return false;</span><br><span class="line">  &#125;</span><br><span class="line">  return true;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int SocketObj::Accept() &#123;</span><br><span class="line">  if (sockFD_ == -1) &#123;</span><br><span class="line">    strErrorMessage_ = &quot;can&#x27;t accept, because sockFD_ = -1&quot;;</span><br><span class="line">    return -1;</span><br><span class="line">  &#125;</span><br><span class="line">  struct sockaddr_in sAddr;</span><br><span class="line">  socklen_t length = sizeof(sAddr);</span><br><span class="line">  int customFD = accept(sockFD_, (struct sockaddr*)&amp;sAddr, &amp;length);</span><br><span class="line">  return customFD;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">bool SocketObj::Connect() &#123;</span><br><span class="line">  Close();</span><br><span class="line">  sockFD_ = socket(AF_INET, SOCK_STREAM, 0);</span><br><span class="line">  if (sockFD_ == -1) &#123;</span><br><span class="line">    strErrorMessage_ = &quot;can&#x27;t connect, because sockFD_ = -1&quot;;</span><br><span class="line">    return false;</span><br><span class="line">  &#125;</span><br><span class="line">  struct sockaddr_in sAddr;</span><br><span class="line">  memset(&amp;sAddr, 0, sizeof(sAddr));</span><br><span class="line">  sAddr.sin_family = AF_INET;</span><br><span class="line">  sAddr.sin_port = htons(iPort_);</span><br><span class="line">  sAddr.sin_addr.s_addr = TranslateAddress();</span><br><span class="line">  if (connect(sockFD_, (struct sockaddr*)&amp;sAddr, sizeof(sAddr))&lt;0) &#123;</span><br><span class="line">    strErrorMessage_ = &quot;can&#x27;t connect, because connect()&lt;0&quot;;</span><br><span class="line">    Close();</span><br><span class="line">    return false;</span><br><span class="line">  &#125;</span><br><span class="line">  return true; </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">bool SocketObj::Close() &#123;</span><br><span class="line">  if (sockFD_ != -1) &#123;</span><br><span class="line">    close(sockFD_);</span><br><span class="line">    sockFD_ = -1;</span><br><span class="line">  &#125;</span><br><span class="line">  return true;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">pair&lt;string, int&gt; SocketObj::GetPeer() &#123;</span><br><span class="line">  if (sockFD_ == -1) &#123;</span><br><span class="line">    strErrorMessage_ = &quot;can&#x27;t GetPeer(), because sockFD_ = -1&quot;;</span><br><span class="line">    return make_pair(&quot;&quot;, 0);</span><br><span class="line">  &#125;</span><br><span class="line">  struct sockaddr_in sAddr;</span><br><span class="line">  socklen_t length = sizeof(sAddr);</span><br><span class="line">  if(getpeername(sockFD_, (struct sockaddr*)&amp;sAddr, &amp;length) != 0) &#123;</span><br><span class="line">    strErrorMessage_ = &quot;getpeername != 0&quot;;</span><br><span class="line">    return make_pair(&quot;&quot;, 0);</span><br><span class="line">  &#125;</span><br><span class="line">  string ipAddr = inet_ntoa(sAddr.sin_addr);</span><br><span class="line">  int port = ntohs(sAddr.sin_port);</span><br><span class="line">  return make_pair(ipAddr, port);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">pair&lt;string, int&gt; SocketObj::GetSock() &#123;</span><br><span class="line">  if (sockFD_ == -1) &#123;</span><br><span class="line">    strErrorMessage_ = &quot;can&#x27;t GetSock(), because sockFD_ = -1&quot;;</span><br><span class="line">    return make_pair(&quot;&quot;, 0);</span><br><span class="line">  &#125;</span><br><span class="line">  struct sockaddr_in sAddr;</span><br><span class="line">  socklen_t length = sizeof(sAddr);</span><br><span class="line">  if(getsockname(sockFD_, (struct sockaddr*)&amp;sAddr, &amp;length) != 0) &#123;</span><br><span class="line">    strErrorMessage_ = &quot;getsockname != 0&quot;;</span><br><span class="line">    return make_pair(&quot;&quot;, 0);</span><br><span class="line">  &#125;</span><br><span class="line">  string ipAddr = inet_ntoa(sAddr.sin_addr);</span><br><span class="line">  int port = ntohs(sAddr.sin_port);</span><br><span class="line">  return make_pair(ipAddr, port);</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>有关<code>Accept</code>函数，我本来想的是将返回的socket描述符包装成一个SocketObj对象的智能指针，但是后来执行的时候出了问题，详情请参见我的下一篇博客《socket连接池SocketPool分析(五)：Accept函数，进退维谷的困境》</p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/SocketPoll/">SocketPoll</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/socket/">socket</a><a href="/tags/SocketPoll/">SocketPoll</a><a href="/tags/SocketObj/">SocketObj</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/08/socket4/" data-title="socket连接池SocketPool分析(四)：socket连接控制SocketObj | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/08/socket5/" title="socket连接池SocketPool分析(五)：Accept函数，进退维谷的困境">
+  <strong>上一篇：</strong><br/>
+  <span>
+  socket连接池SocketPool分析(五)：Accept函数，进退维谷的困境</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/08/socket3/"  title="socket连接池SocketPool分析(三):《UNPv1》复习（下）：IO多路复用">
+ <strong>下一篇：</strong><br/> 
+ <span>socket连接池SocketPool分析(三):《UNPv1》复习（下）：IO多路复用
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ 
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

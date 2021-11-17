@@ -1,0 +1,713 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>消息队列与共享内存(四)：protobuf反射机制 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="protobuf自描述消息在上一篇文章当中我讲到了使用protobuf来序列化消息便于发送，那么如果直接把我的rapidmsg用在我的消息队列当中就是这样的情况： 12345678910111213141516171819202122232425long messageId &#x3D; test::JUST_TEST_REQUEST;  RMessage rmessage;  Head* head &#x3D; n">
+<meta property="og:type" content="article">
+<meta property="og:title" content="消息队列与共享内存(四)：protobuf反射机制">
+<meta property="og:url" content="http://xiongjun.info/2016/02/16/mqueue4/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="protobuf自描述消息在上一篇文章当中我讲到了使用protobuf来序列化消息便于发送，那么如果直接把我的rapidmsg用在我的消息队列当中就是这样的情况： 12345678910111213141516171819202122232425long messageId &#x3D; test::JUST_TEST_REQUEST;  RMessage rmessage;  Head* head &#x3D; n">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2016-02-16T12:28:08.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.100Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="protobuf">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2016/02/16/mqueue4/" title="消息队列与共享内存(四)：protobuf反射机制" itemprop="url">消息队列与共享内存(四)：protobuf反射机制</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2016-02-16T12:28:08.000Z" itemprop="datePublished"> 发表于 2016-02-16</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#protobuf%E8%87%AA%E6%8F%8F%E8%BF%B0%E6%B6%88%E6%81%AF"><span class="toc-number">1.</span> <span class="toc-text">protobuf自描述消息</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#protobuf%E6%9C%AC%E8%BA%AB%E7%9A%84%E5%8F%8D%E5%B0%84"><span class="toc-number">2.</span> <span class="toc-text">protobuf本身的反射</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#DescriptorPool-generated-pool"><span class="toc-number">2.1.</span> <span class="toc-text">DescriptorPool::generated_pool()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#FindMessageTypeByName"><span class="toc-number">2.2.</span> <span class="toc-text">FindMessageTypeByName</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#MessageFactory-generated-factory"><span class="toc-number">2.3.</span> <span class="toc-text">MessageFactory::generated_factory()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#GetPrototype"><span class="toc-number">2.4.</span> <span class="toc-text">GetPrototype()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#New"><span class="toc-number">2.5.</span> <span class="toc-text">New()</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8%E6%B3%95"><span class="toc-number">3.</span> <span class="toc-text">用法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#GetReflectioin"><span class="toc-number">3.1.</span> <span class="toc-text">GetReflectioin</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-number">4.</span> <span class="toc-text">适用场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%81%E8%A3%85%E4%BB%A3%E7%A0%81"><span class="toc-number">5.</span> <span class="toc-text">封装代码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E5%85%B3Makefile%E9%9C%80%E8%A6%81%E6%B3%A8%E6%84%8F%E7%9A%84%E4%B8%80%E7%82%B9"><span class="toc-number">6.</span> <span class="toc-text">有关Makefile需要注意的一点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A9%E5%B1%95%E9%98%85%E8%AF%BB"><span class="toc-number">7.</span> <span class="toc-text">扩展阅读</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%BE%E5%A3%B0"><span class="toc-number">8.</span> <span class="toc-text">尾声</span></a></li></ol>
+		
+		</div>
+		
+		<h2 id="protobuf自描述消息"><a href="#protobuf自描述消息" class="headerlink" title="protobuf自描述消息"></a><code>protobuf</code>自描述消息</h2><p>在上一篇文章当中我讲到了使用<code>protobuf</code>来序列化消息便于发送，那么如果直接把我的<code>rapidmsg</code>用在我的消息队列当中就是这样的情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">long messageId = test::JUST_TEST_REQUEST;</span><br><span class="line"></span><br><span class="line">  RMessage rmessage;</span><br><span class="line"></span><br><span class="line">  Head* head = new Head;</span><br><span class="line">  head-&gt;set_session_no(&quot;1&quot;);</span><br><span class="line">  head-&gt;set_message_type(messageId);</span><br><span class="line">  head-&gt;set_client_ip(&quot;127.0.0.1&quot;);</span><br><span class="line">  head-&gt;set_target_ip(&quot;127.0.0.1&quot;);</span><br><span class="line">  head-&gt;set_target_port(9999);</span><br><span class="line"></span><br><span class="line">  Body* body = new Body;</span><br><span class="line"></span><br><span class="line">  ::rapidmsg::test::JustTestRequest* request = body-&gt;MutableExtension(::rapidmsg::test::just_test_request);</span><br><span class="line">  request-&gt;set_test_id(1);</span><br><span class="line">  request-&gt;set_test_name(&quot;test_request&quot;);</span><br><span class="line"></span><br><span class="line">  rmessage.set_allocated_head(head);</span><br><span class="line">  rmessage.set_allocated_body(body);</span><br><span class="line"></span><br><span class="line">  string str;</span><br><span class="line">  rmessage.SerializeToString(&amp;str); // 将对象序列化到字符串，除此外还可以序列化到fstream等</span><br><span class="line"></span><br><span class="line">  RMessage pmessage;</span><br><span class="line">  pmessage.ParseFromString(str);</span><br></pre></td></tr></table></figure>
+<p>在序列化成<code>string</code>之前需要自己设置很多的其他值。但是看这个程序其实有很多地方都不必自己动手设置。其实真正需要自己手动设置的位置也就只有<code>body</code>那一块：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Body* body = new Body;</span><br><span class="line"></span><br><span class="line"> ::rapidmsg::test::JustTestRequest* request = body-&gt;MutableExtension(::rapidmsg::test::just_test_request);</span><br><span class="line"> request-&gt;set_test_id(1);</span><br><span class="line"> request-&gt;set_test_name(&quot;test_request&quot;);</span><br></pre></td></tr></table></figure>
+<p>理想的情况下直接把<code>body</code>这个指针传给一个接口，然后其余的工作都由接口来完成。</p>
+<p>发送端自然可以这样做，因为发送端知道自己发送的消息类型。</p>
+<p>但是接受端就不行了。其实应该这样说：如果接收端仅仅接受特定的消息类型的话，那么很简单就能写一个专门的接口来负责解析消息。但是如果接收端不仅仅接收一种消息呢？一般处理的策略就是在<code>head</code>当中加入<code>body</code>所属的<code>message</code>类型。在接受端先读<code>head</code>，根据<code>head</code>当中保存的<code>message</code>类型来构造一个实例（反射），再用这个实例来解析<code>body</code>。这种情况下需要的使用反射，而<code>protobuf</code>已经实现了反射功能。</p>
+<blockquote>
+<p>一般的后台接口设计都是一个接口只接收一种请求，返回一种响应。接收多种请求，并返回多种响应的接口也有，就是路由器或者网关。比如说公司为了安全考虑，在客户端和服务器的中间写一个路由器<code>route_machine</code>或者叫做网关(gateway)，客户端发送过来的消息先做一层解析，然后将消息重新包装发送给服务器。从服务器当中取出响应，解析之后重新包装返回给客户端。这样做就可以在<code>route_machine</code>这一层把非法的消息给阻挡住。或者这一层可以用做缓存，当发生缓存不命中的情况下才发送消息给服务器，其余情况都是从缓存当中拿数据返回给客户端，做到降低服务器的流量。这两个例子都说明了接受多种请求的接口有实用场景，所以protobuf的反射功能值得学习。<br>我公司这边写了一个前置机<code>FrontEnd</code>，但是这个功能比较简单，就是从客户端那里拿到消息，读消息的头，拿到类型之后再转发给对应的后台进程。这个前置机的并没有实现更深度的转发，它的主要作用是隔离后台应用服务器，保证安全。还有一点就是屏蔽后台服务器对用户的复杂性。不论后台服务器部署怎么改变，通过前置机展现给用户的接口始终不变。</p>
+</blockquote>
+<h2 id="protobuf本身的反射"><a href="#protobuf本身的反射" class="headerlink" title="protobuf本身的反射"></a><code>protobuf</code>本身的反射</h2><p><code>Google Protobuf</code> 本身具有很强的反射<code>(reflection)</code>功能，可以根据 <code>type name</code> 创建具体类型的 <code>Message</code> 对象。<br>我自己也写过一篇文章来用C++模拟反射：<a href="http://xiongjun.info/2015/12/23/class-factory/">使用C++的classFactory来模拟JAVA的反射机制</a>。我写的玩具一般的程序在<code>protobuf</code>的反射机制面前真是弱爆了。</p>
+<p>使用到了五个接口：</p>
+<h3 id="DescriptorPool-generated-pool"><a href="#DescriptorPool-generated-pool" class="headerlink" title="DescriptorPool::generated_pool()"></a>DescriptorPool::generated_pool()</h3><p>在<code>protobuf</code>的<code>descriptor.h</code>头文件当中能找到<code>gengerated_pool</code>的使用方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">// Get a pointer to the generated pool.  Generated protocol message classes</span><br><span class="line">  // which are compiled into the binary will allocate their descriptors in</span><br><span class="line">  // this pool.  Do not add your own descriptors to this pool.</span><br><span class="line">  // 得到一个指针指向产生的池。在编译期间根据protocol message编译产生二进制文件的时候每个protocol message都会被分配一个描述符descriptor，然后这个descriptor就会自动放入这个池当中。注意不要把你自己的描述符放进这个池里面</span><br><span class="line">  static const DescriptorPool* generated_pool();</span><br></pre></td></tr></table></figure>
+
+<p>在<a target="_blank" rel="noopener" href="https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.descriptor#DescriptorPool.internal_generated_pool.details">protobuf的官方网站</a>是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">For internal use only: Gets a non-const pointer to the generated pool.</span><br><span class="line"></span><br><span class="line">This is called at static-initialization time only, so thread-safety is not a concern. If both an underlay and a fallback database are present, the underlay takes precedence.</span><br><span class="line"></span><br><span class="line">仅仅作为内部使用：得到一个非const指针，指向产生的池</span><br><span class="line">这个函数仅仅能够在静态初始化的期间被调用，所以线程安全性大可不用担心。如果同时有underlay的数据库和fallback的数据库，那么underlay的数据库有优先权。</span><br></pre></td></tr></table></figure>
+
+<p>已经很明白了，这个接口用来创建一个<code>DescriptorPool</code>，陈硕老师在他的文章当中说它包含了程序编译的时候所链接的全部 protobuf Message types，其实不仅仅包含<code>message</code>的类型，<code>enum</code>的类型也在里面，可以通过<code>FindEnumValueByName()</code>根据，因为<code>enum</code>类型在创建的时候也会有一个<code>descriptor</code>，这个在下文再谈。</p>
+<p>由于它是<code>static</code>，所以可以被重复调用多次而不会创建多个 DescriptorPool 对象。</p>
+<h3 id="FindMessageTypeByName"><a href="#FindMessageTypeByName" class="headerlink" title="FindMessageTypeByName"></a>FindMessageTypeByName</h3><p>同样在<code>protobuf</code>的<code>descriptor.h</code>头文件当中：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">// Find a top-level message type by name.  Returns NULL if not found.</span><br><span class="line">// 通过名字来获取到顶层message的descriptor。如果并没有找到那么就返回NULL</span><br><span class="line"> const Descriptor* FindMessageTypeByName(const string&amp; name) const;</span><br></pre></td></tr></table></figure>
+
+<h3 id="MessageFactory-generated-factory"><a href="#MessageFactory-generated-factory" class="headerlink" title="MessageFactory::generated_factory()"></a>MessageFactory::generated_factory()</h3><p>在<code>protobuf</code>的<code>message.h</code>头文件中：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">// This factory is a singleton.  The caller must not delete the object.</span><br><span class="line">// 这个factory是一个singleton，调用者不能够用delete删掉它</span><br><span class="line">static MessageFactory* generated_factory();</span><br></pre></td></tr></table></figure>
+
+<p>找到 MessageFactory 对象，它能创建程序编译的时候所链接的全部 protobuf Message types。<br>此 Factory 是一个 Singleton，因此重复多次调用 generated_factory 函数不会创建多个 MessageFactory 对象.</p>
+<h3 id="GetPrototype"><a href="#GetPrototype" class="headerlink" title="GetPrototype()"></a>GetPrototype()</h3><p>在<code>message.h</code>当中：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">// This method may or may not be thread-safe depending on the implementation.</span><br><span class="line">// Each implementation should document its own degree thread-safety.</span><br><span class="line">// 根据调用的情况这个方法可能是线程安全的也可能不是线程安全的</span><br><span class="line">// 每次调用需要自己判断它的线程安全性</span><br><span class="line">virtual const Message* GetPrototype(const Descriptor* type) = 0;</span><br></pre></td></tr></table></figure>
+<p>根据上文所得到的Descriptor<em>的值来获取Message</em>，对同一个 Descriptor 多次调用 MessageFactory::GetPrototype 函数将返回同一个对象，也就是default instance，所以不能直接对它进行操作，需要使用New()这个接口来创建一个新的实例。</p>
+<h3 id="New"><a href="#New" class="headerlink" title="New()"></a>New()</h3><p>在<code>message.h</code>当中：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">// Construct a new instance of the same type.  Ownership is passed to the</span><br><span class="line">// caller.  (This is also defined in MessageLite, but is defined again here</span><br><span class="line">// for return-type covariance.)</span><br><span class="line">// 构造一个相同类型的新的实例，新实例的所有权被转交给调用者。</span><br><span class="line">// 这个同样也在MessageLite当中被定义了，但是返回的类型是不同的</span><br><span class="line">virtual Message* New() const = 0;</span><br></pre></td></tr></table></figure>
+
+<p>由于New() 是虚函数，所以能返回本对象的一份新实例，类型与本对象的真实类型相同，也就是说返回的类型虽然是<code>Message*</code>，但是可以通过<code>dynamic_cast</code>来转换成具体 Message Type 的类型指针。<br>New 函数构造的 message 对象必须在 MessageFactory 销毁前销毁。</p>
+<h2 id="用法"><a href="#用法" class="headerlink" title="用法"></a>用法</h2><p>客户端不仅要传送<code>protobuf</code>序列化之后的字符串，还需要将<code>message</code>的类型也一并传送出去。比如说我这个程序：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">string type_name = &quot;rapidmsg.IpAddress&quot;;</span><br><span class="line"></span><br><span class="line">IpAddress myip;</span><br><span class="line">myip.set_ip(&quot;1&quot;);</span><br><span class="line">myip.set_type(10);</span><br><span class="line"></span><br><span class="line">string str;</span><br><span class="line">myip.SerializeToString(&amp;str);</span><br><span class="line"></span><br><span class="line">string send_mes = type_name + &quot;###&quot; + str;   //###做为分隔符</span><br><span class="line"></span><br><span class="line">//接下来就是将send_mes发送出去，为了方便我就不写了，下面的代码就是解析send_mes，就可以用在服务器端</span><br><span class="line"></span><br><span class="line">vector&lt;string&gt; fields;</span><br><span class="line">boost::split(fields, send_mes, boost::is_any_of(&quot;###&quot;));  //将send_mes根据###切割，放入vector&lt;string&gt;当中去</span><br><span class="line">string recv_type_name(&quot;&quot;);</span><br><span class="line">string recv_message(&quot;&quot;);</span><br><span class="line">for (int i = 0; i&lt;fields.size(); ++i) &#123;</span><br><span class="line">	recv_type_name = fields[0];</span><br><span class="line">	if (i!=0 &amp;&amp; fields[i]!=&quot;&quot;) &#123;</span><br><span class="line">		recv_message = fields[i];</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">const google::protobuf::Descriptor* descriptor = google::protobuf::DescriptorPool::generated_pool()-&gt;FindMessageTypeByName(recv_type_name);</span><br><span class="line"></span><br><span class="line">const google::protobuf::Message* prototype = google::protobuf::MessageFactory::generated_factory()-&gt;GetPrototype(descriptor);</span><br><span class="line"></span><br><span class="line">// 到了这一步是只能实例化出Message对象，如果知道类型的话就可以这么写：</span><br><span class="line">// ::rapidmsg::IpAddress* new_obj = dynamic_cast&lt;::rapidmsg::IpAddress*&gt;(prototype-&gt;New());</span><br><span class="line">google::protobuf::Message* new_obj = prototype-&gt;New();</span><br><span class="line">new_obj-&gt;ParseFromString(recv_message);</span><br><span class="line"></span><br><span class="line">// 由于这里并不知道确定的类型，那么就只能调用protobuf为所有Message都提供的方法。</span><br><span class="line">cout &lt;&lt; new_obj-&gt;DebugString() &lt;&lt; endl;  //可以看到输出的是ip: &quot;1&quot; type: 10</span><br><span class="line"></span><br><span class="line">delete new_obj;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>不要被反射这两个字蒙住眼睛,老是想着如何使用字符串来初始化一个实例。<code>protobuf</code>当中是根据字符串找到<code>Descriptor*</code>，再根据<code>Descriptor*</code>来初始化一个实例。如果能直接获取到<code>Descriptor*</code>，那么连字符串也不需要了。</p>
+</blockquote>
+<h3 id="GetReflectioin"><a href="#GetReflectioin" class="headerlink" title="GetReflectioin"></a>GetReflectioin</h3><p>那么是不是不知道类型就不能获取到当中的值了呢？也不是，还是有办法的。<br>那就是——通过GetReflection能够操作<code>message</code>的各个字段。<br>虽然我不知道发送的<code>message</code>的类型到底是<code>IpAddress</code>还是<code>IpPort</code>还是什么其他的类型，但是有一件事情我是知道的，那就是在所有的类型当中都定义了同一个字段：<code>required string ip = xxx</code>（这个当然不是<code>protobuf</code>内置的，是需要自己写<code>proto</code>文件的时候就写好的，如果自己没有写好，那么这个方法也就没有作用)。<br>那么不管你发送什么样的类型的数据，我都能获取到<code>ip</code>这个字段的值。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">const ::google::protobuf::Reflection* reflection = new_obj-&gt;GetReflection();</span><br><span class="line"></span><br><span class="line">// 不管发的是什么类型，如果能确定类型当中一定有ip，而且ip定义的类型是string，那么就可以直接获取到</span><br><span class="line">const ::google::protobuf::FieldDescriptor* rmes_field = descriptor-&gt;FindFieldByName(&quot;ip&quot;);</span><br><span class="line"></span><br><span class="line">cout &lt;&lt; reflection-&gt;GetString(*new_obj, rmes_field) &lt;&lt; endl;</span><br></pre></td></tr></table></figure>
+<p><code>protobuf</code>不仅仅对每一个<code>message</code>有<code>google::protobuf::Descriptor</code>的描述符，而且看到对于每一个字段也有<code>google::protobuf::FieldDescriptor</code>的描述符。</p>
+<h2 id="适用场景"><a href="#适用场景" class="headerlink" title="适用场景"></a>适用场景</h2><p>这篇文章介绍的<code>protobuf</code>反射机制适用的场景是：发送的消息格式不同。<br>比如说客户端发送的是序列化的<code>CLIENT_REQUEST</code>，或者<code>CLIENT_TEST_REQUEST</code>，我所说的发送的消息格式指的是序列化时候用的消息格式。</p>
+<p>至于我的<code>rapidmsg</code>使用的是<code>extend</code>的方式，发送的消息格式全部都是<code>RMessage</code>的格式，仅仅只是在<code>body</code>中嵌套了不同的<code>message</code>，序列化的时候用的还是<code>RMessage</code>，所以就没有使用这个反射的必要了。</p>
+<p>使用这种方法应用场景不多，而且需要使用<code>GetExtension</code>来获取<code>body</code>的时候，这个反射机制也帮不上忙，倒是可以用宏来做这件事情。</p>
+<h2 id="封装代码"><a href="#封装代码" class="headerlink" title="封装代码"></a>封装代码</h2><p><a target="_blank" rel="noopener" href="https://github.com/adairjun/rapidmsg/blob/master/util/rmessage_util.cpp">rmessage_util.cpp</a></p>
+<h2 id="有关Makefile需要注意的一点"><a href="#有关Makefile需要注意的一点" class="headerlink" title="有关Makefile需要注意的一点"></a>有关Makefile需要注意的一点</h2><p>由于我的<code>rmessage_util.cpp</code>用到了<code>rapidmsg.pb.h</code>，所以要保证<code>make</code>的时候先编译<code>proto</code>文件，后编译<code>rmessage_util.cpp</code>这个文件。所以不能简单地把我以前写的<code>Makefile</code>照搬过来直接用，而是先用函数把这两个给分开：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">#这是描述proto文件</span><br><span class="line">PROTOFILES := $(wildcard ./proto/*.proto)</span><br><span class="line">PROTOHEADERS := $(addsuffix .pb.h, $(notdir $(basename $(PROTOFILES))))</span><br><span class="line">PROTOCPPFILES := $(addsuffix .pb.cc, $(notdir $(basename $(PROTOFILES))))</span><br><span class="line">PROTOOBJECTS := $(addsuffix .pb.o, $(notdir $(basename $(PROTOFILES))))</span><br><span class="line"></span><br><span class="line">#这是描述util目录下的cpp文件</span><br><span class="line">LIBCFILES := $(wildcard ./util/*.c)</span><br><span class="line">LIBCPPFILES := $(wildcard ./util/*.cc ./util/*.cpp)</span><br><span class="line">LIBOBJECTS := $(addsuffix .o, $(basename $(LIBCFILES)) $(basename $(LIBCPPFILES)))</span><br><span class="line"></span><br><span class="line">......</span><br><span class="line"></span><br><span class="line">#利用Makefile的先后顺序，把PROTOOBJECTS放在LIBOBJECTS前面，让proto先编译</span><br><span class="line">$(TARGET):$(PROTOOBJECTS) $(LIBOBJECTS)</span><br><span class="line">    $(QUIET_LINK)$(CXX) -shared -fPIC -o $(TARGET) $^ $(LIBS)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<h2 id="扩展阅读"><a href="#扩展阅读" class="headerlink" title="扩展阅读"></a>扩展阅读</h2><p><a target="_blank" rel="noopener" href="http://blog.csdn.net/solstice/article/details/6300108">一种自动反射消息类型的 Google Protobuf 网络传输方案</a><br><a target="_blank" rel="noopener" href="https://developers.google.com/protocol-buffers/docs/techniques?hl=zh-CN#self-description">self-describing message</a></p>
+<h2 id="尾声"><a href="#尾声" class="headerlink" title="尾声"></a>尾声</h2><p>使用方法就讲解到这里，我想我需要把阅读<code>protobuf</code>源代码的任务作为我的2016年度计划当中去。</p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/MessageQueue/">MessageQueue</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/protobuf/">protobuf</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2016/02/16/mqueue4/" data-title="消息队列与共享内存(四)：protobuf反射机制 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2016/02/16/mqueue5/" title="消息队列与共享内存(五)：企业应用级的消息队列">
+  <strong>上一篇：</strong><br/>
+  <span>
+  消息队列与共享内存(五)：企业应用级的消息队列</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2016/02/16/mqueue3/"  title="消息队列与共享内存(三)：格式化消息的`message_factory`设计">
+ <strong>下一篇：</strong><br/> 
+ <span>消息队列与共享内存(三)：格式化消息的`message_factory`设计
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#protobuf%E8%87%AA%E6%8F%8F%E8%BF%B0%E6%B6%88%E6%81%AF"><span class="toc-number">1.</span> <span class="toc-text">protobuf自描述消息</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#protobuf%E6%9C%AC%E8%BA%AB%E7%9A%84%E5%8F%8D%E5%B0%84"><span class="toc-number">2.</span> <span class="toc-text">protobuf本身的反射</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#DescriptorPool-generated-pool"><span class="toc-number">2.1.</span> <span class="toc-text">DescriptorPool::generated_pool()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#FindMessageTypeByName"><span class="toc-number">2.2.</span> <span class="toc-text">FindMessageTypeByName</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#MessageFactory-generated-factory"><span class="toc-number">2.3.</span> <span class="toc-text">MessageFactory::generated_factory()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#GetPrototype"><span class="toc-number">2.4.</span> <span class="toc-text">GetPrototype()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#New"><span class="toc-number">2.5.</span> <span class="toc-text">New()</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8%E6%B3%95"><span class="toc-number">3.</span> <span class="toc-text">用法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#GetReflectioin"><span class="toc-number">3.1.</span> <span class="toc-text">GetReflectioin</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-number">4.</span> <span class="toc-text">适用场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%81%E8%A3%85%E4%BB%A3%E7%A0%81"><span class="toc-number">5.</span> <span class="toc-text">封装代码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E5%85%B3Makefile%E9%9C%80%E8%A6%81%E6%B3%A8%E6%84%8F%E7%9A%84%E4%B8%80%E7%82%B9"><span class="toc-number">6.</span> <span class="toc-text">有关Makefile需要注意的一点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A9%E5%B1%95%E9%98%85%E8%AF%BB"><span class="toc-number">7.</span> <span class="toc-text">扩展阅读</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%BE%E5%A3%B0"><span class="toc-number">8.</span> <span class="toc-text">尾声</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

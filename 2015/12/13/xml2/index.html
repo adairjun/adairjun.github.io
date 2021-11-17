@@ -1,0 +1,776 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>使用boost::property_tree解析xml与json (二):parse_xml设计 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="请注意，这段代码只能运行在boost的版本比较高的情况下。我的ubuntu 14.04LTS的boost版本是1.54，所以能编译通过，但是今天我在我的centos 6.5上编译通不过，因为我的centos 6.5的boost版本是1.41。我在centos 6.5下是用yum安装boost的命令是  12yum -y groupinstall &quot;Development Tools&amp;q">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用boost::property_tree解析xml与json (二):parse_xml设计">
+<meta property="og:url" content="http://xiongjun.info/2015/12/13/xml2/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="请注意，这段代码只能运行在boost的版本比较高的情况下。我的ubuntu 14.04LTS的boost版本是1.54，所以能编译通过，但是今天我在我的centos 6.5上编译通不过，因为我的centos 6.5的boost版本是1.41。我在centos 6.5下是用yum安装boost的命令是  12yum -y groupinstall &quot;Development Tools&amp;q">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-12-12T17:02:07.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.094Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="boost">
+<meta property="article:tag" content="property_tree">
+<meta property="article:tag" content="xml">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/13/xml2/" title="使用boost::property_tree解析xml与json (二):parse_xml设计" itemprop="url">使用boost::property_tree解析xml与json (二):parse_xml设计</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-12T17:02:07.000Z" itemprop="datePublished"> 发表于 2015-12-13</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#class%E7%9A%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">1.</span> <span class="toc-text">class的设计</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%89%E5%85%B3%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96%EF%BC%9A"><span class="toc-number">1.1.</span> <span class="toc-text">有关智能指针的初始化：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%89%E5%85%B3std-move"><span class="toc-number">1.2.</span> <span class="toc-text">有关std::move</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%83%B3%E6%B3%95"><span class="toc-number">2.</span> <span class="toc-text">想法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%9B%B4%E6%8E%A5%E8%8E%B7%E5%8F%96xml%E7%9A%84%E6%A0%87%E7%AD%BE%E7%9A%84%E5%80%BC%EF%BC%8C"><span class="toc-number">2.1.</span> <span class="toc-text">直接获取xml的标签的值，</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96%E6%89%80%E6%9C%89%E5%AD%90%E6%A0%87%E7%AD%BE"><span class="toc-number">2.2.</span> <span class="toc-text">获取所有子标签</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96%E6%89%80%E6%9C%89%E5%AD%99%E6%A0%87%E7%AD%BE"><span class="toc-number">2.3.</span> <span class="toc-text">获取所有孙标签</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BE%97%E5%88%B0%E4%B8%80%E4%B8%AA%E6%A0%87%E7%AD%BE%E7%9A%84attribute"><span class="toc-number">2.4.</span> <span class="toc-text">得到一个标签的attribute</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BE%97%E5%88%B0%E4%B8%80%E7%BB%84attribute"><span class="toc-number">2.5.</span> <span class="toc-text">得到一组attribute</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B9%E6%8D%AE%E5%B7%B2%E7%BB%8F%E7%9F%A5%E9%81%93%E7%9A%84attribute%E5%8E%BB%E6%9F%A5%E6%89%BE%E6%9C%AA%E7%9F%A5%E7%9A%84attribute"><span class="toc-number">2.6.</span> <span class="toc-text">根据已经知道的attribute去查找未知的attribute</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE%E7%9A%84%E6%93%8D%E4%BD%9C"><span class="toc-number">3.</span> <span class="toc-text">插入数据的操作</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8A%A0%E5%85%A5%E4%B8%80%E4%B8%AA-lt-key-gt-value-lt-key-gt-%E6%A0%87%E7%AD%BE"><span class="toc-number">3.1.</span> <span class="toc-text">加入一个&lt;key&gt;value&lt;&#x2F;key&gt;标签</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E4%B8%80%E4%B8%AA%E7%88%B6%E6%A0%87%E7%AD%BE"><span class="toc-number">3.2.</span> <span class="toc-text">插入一个父标签</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E4%B8%80%E4%B8%AA%E6%95%B0%E7%BB%84"><span class="toc-number">3.3.</span> <span class="toc-text">插入一个数组</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E4%B8%80%E4%B8%AA%E6%96%B0%E7%9A%84attribute"><span class="toc-number">3.4.</span> <span class="toc-text">插入一个新的attribute</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AA%E6%96%B0%E8%A1%8C%EF%BC%8C%E5%B9%B6%E6%8F%92%E5%85%A5%E4%B8%80%E7%BB%84attribute%EF%BC%8C"><span class="toc-number">3.5.</span> <span class="toc-text">创建一个新行，并插入一组attribute，</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BF%9D%E5%AD%98%E7%BB%93%E6%9E%9C"><span class="toc-number">3.6.</span> <span class="toc-text">保存结果</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%91%E7%9A%84%E6%B5%8B%E8%AF%95%E8%AF%A6%E6%83%85%E8%AF%B7%E8%AE%BF%E9%97%AEtest-xml-cpp"><span class="toc-number">4.</span> <span class="toc-text">我的测试详情请访问test_xml.cpp</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%80%E5%90%8E%E8%B4%B4%E4%B8%8A%E5%AE%8C%E6%95%B4%E7%9A%84%E6%BA%90%E4%BB%A3%E7%A0%81%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">最后贴上完整的源代码：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#parse-xml-h"><span class="toc-number">6.</span> <span class="toc-text">parse_xml.h</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#parse-xml-cpp"><span class="toc-number">7.</span> <span class="toc-text">parse_xml.cpp</span></a></li></ol>
+		
+		</div>
+		
+		<blockquote>
+<p>请注意，这段代码只能运行在<code>boost</code>的版本比较高的情况下。我的<code>ubuntu 14.04LTS</code>的<code>boost</code>版本是<code>1.54</code>，所以能编译通过，但是今天我在我的<code>centos 6.5</code>上编译通不过，因为我的<code>centos 6.5</code>的<code>boost</code>版本是<code>1.41</code>。我在<code>centos 6.5</code>下是用<code>yum</code>安装<code>boost</code>的命令是</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">yum -y groupinstall &quot;Development Tools&quot;</span><br><span class="line">yum -y install boost-*</span><br></pre></td></tr></table></figure>
+<p>然而这个<code>yum -y install boost-*</code>在我的<code>zsh</code>环境下执行不了，我只好切换到<code>bash</code>执行。<code>boost</code>安装路劲是<code>/usr/include/boost</code>，然后有一个专门的<code>version.hpp</code>是显示<code>boost</code>版本的，这个时候我查看到我用<code>yum</code>安装的<code>boost</code>是<code>1.41</code>版本。随后我重新下载了<code>boost</code>的源代码，使用<code>b2</code>安装了最新版。不得不说<code>centos</code>的软件更新速度真是慢。同样是安装，我的<code>Ubuntu 14.04LTS</code>用的是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get install libboost-all-dev</span><br></pre></td></tr></table></figure>
+<p>安装的<code>boost</code>就是<code>1.54</code>版本。</p>
+<p>=========================== 2015年12月13日 ========================================</p>
+<h2 id="class的设计"><a href="#class的设计" class="headerlink" title="class的设计"></a>class的设计</h2><p>这个<code>ParseXmlObj</code>的设计当然和前面一样都是遵守RAII的法则。这个构造函数的设计很简单，就是通过传入<code>xml</code>文件的路径从而得到<code>ParseXmlObj</code>的对象的。默认路径是<code>../config/messageQueue.xml</code>。</p>
+<p>使用方法很简单：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ParseXmlObj myXml(&quot;../config/testXml.xml&quot;);</span><br></pre></td></tr></table></figure>
+<p>这样就根据<code>../config/testXml.xml</code>构造了<code>ParseXmlObj</code>对象。</p>
+<h3 id="有关智能指针的初始化："><a href="#有关智能指针的初始化：" class="headerlink" title="有关智能指针的初始化："></a>有关智能指针的初始化：</h3><p>需要提到的一点是有关智能指针作为类的成员的时候，类初始化必须把智能指针放在初始化列表：<br>是这样的，由于解析<code>xml</code>必须用到<code>ptree</code>类型的对象，所以我把它封装在了<code>ParseXmlObj</code>的成员当中，但是由于我并不知道<code>ptree</code>初始化需要什么样的参数，换句话来说，就是如果<code>ParseXmlObj</code>的成员是<code>ptree</code>类型的对象，那么构造函数初始化的时候就会失败，为了避免这种情况，我使用指针来充当成员而不是使用<code>ptree</code>的对象。<br>对于指针的使用，我早就条件反射式的用<code>shared_ptr</code>，可以说我已经不用普通指针很多年了:）<br>那么在构造函数当中就需要解决<code>shared_ptr</code>成员的初始化。</p>
+<blockquote>
+<p><code>shared_ptr</code>的初始化必须使用初始化列表</p>
+</blockquote>
+<p>正确的形式是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">ParseXmlObj::ParseXmlObj() </span><br><span class="line">    : pt_(new ptree) &#123;</span><br><span class="line">    configPath_ = &quot;../config/messageQueue.xml&quot;;</span><br><span class="line">    //pt_ = new ptree;</span><br><span class="line">    boost::property_tree::read_xml(configPath_, *pt_);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果写成这种形式将编译通不过：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">ParseXmlObj::ParseXmlObj() &#123;</span><br><span class="line">    configPath_ = &quot;../config/messageQueue.xml&quot;;</span><br><span class="line">    pt_ = new ptree;</span><br><span class="line">    //或者这种形式编译也通不过:  </span><br><span class="line">    //pt_(new ptree);</span><br><span class="line">    boost::property_tree::read_xml(configPath_, *pt_);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="有关std-move"><a href="#有关std-move" class="headerlink" title="有关std::move"></a>有关std::move</h3><p><code>std::move</code>是用来减少不必要的拷贝和销毁的。有关<code>std::move</code>和<code>RVO（Return value optimization）</code>也就是编译器做的返回对象的优化，可以参看这篇英文文章<a target="_blank" rel="noopener" href="https://www.ibm.com/developerworks/community/blogs/5894415f-be62-4bc0-81c5-3956e82276f3/entry/RVO_V_S_std_move?lang=en">RVO V.S. std::move</a>，写的很好，我想有空的话我来做个翻译。</p>
+<h2 id="想法"><a href="#想法" class="headerlink" title="想法"></a>想法</h2><p>解析<code>xml</code>我觉得有以下几种情况：</p>
+<h3 id="直接获取xml的标签的值，"><a href="#直接获取xml的标签的值，" class="headerlink" title="直接获取xml的标签的值，"></a>直接获取<code>xml</code>的标签的值，</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">   &lt;child&gt;</span><br><span class="line">    &lt;a&gt;“1”&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;2&lt;/b&gt;</span><br><span class="line">  &lt;/child&gt;</span><br><span class="line"> &lt;/root&gt;</span><br></pre></td></tr></table></figure>
+<p>比如说我想要直接获取<code>&lt;a&gt;</code>标签的值，这种情况是我已经知道了标签的名字和路径。<br>这个时候我提供了一个接口：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">string GetChildData(const string&amp; path);</span><br></pre></td></tr></table></figure>
+<p>用于处理已经知道标签的路径，想要得到标签里面的值的情况。</p>
+<h3 id="获取所有子标签"><a href="#获取所有子标签" class="headerlink" title="获取所有子标签"></a>获取所有子标签</h3><p>我不知道这个标签下有多少个子标签，但是我知道这些子标签的格式都是最简单的<code>&lt;key&gt;value&lt;/key&gt;</code>型:<br>就是说这些子标签不会有它们自己的子标签，而且也没有<code>attribute</code>, 而且这些子标签的标签名不会有重复。</p>
+<p>比如这个<code>xml</code>当中的<code>child</code>标签：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">   &lt;child&gt;</span><br><span class="line">    &lt;a&gt;“1”&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;2&lt;/b&gt;</span><br><span class="line">  &lt;/child&gt;</span><br><span class="line"> &lt;/root&gt;</span><br></pre></td></tr></table></figure>
+<p>对于这种情况，我提供了接口：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">map&lt;string, string&gt; GetChildDataMap(const string&amp; path);</span><br></pre></td></tr></table></figure>
+<p><code>map</code>的<code>first</code>就是标签名，<code>second</code>就是标签值。<br>由于子标签的标签名不会有重复，所以可以保证数据的完整性。</p>
+<h3 id="获取所有孙标签"><a href="#获取所有孙标签" class="headerlink" title="获取所有孙标签"></a>获取所有孙标签</h3><p>我不知道这个标签下有多少个子标签，也不知道有多少个孙标签，但是我知道这些子标签的格式，以及孙标签的格式。</p>
+<p>子标签的格式就是没有<code>attribute</code>的<code>&lt;key&gt;value&lt;/key&gt;</code>型，孙标签也是。</p>
+<p>比如这里的<code>root</code>标签：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">  &lt;child&gt;</span><br><span class="line">    &lt;a&gt;&quot;1&quot;&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;2&lt;/b&gt;</span><br><span class="line">  &lt;/child&gt;</span><br><span class="line">  &lt;newchild&gt;</span><br><span class="line">    &lt;a&gt;&quot;3&quot;&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;&quot;4&quot;&lt;/b&gt;</span><br><span class="line">  &lt;/newchild&gt;</span><br><span class="line">&lt;/root&gt; </span><br></pre></td></tr></table></figure>
+<p>我认为用的最多的场景就是这样的：每个子标签格式相同（值的是孙标签不多也不少，而且孙标签的名字都相同），每个子标签代表这初始化一个资源所需的参数（就想我的<a target="_blank" rel="noopener" href="https://github.com/adairjun/SocketPool/blob/master/util/server_connection_pool.cpp">server_connection_pool.cpp</a>一样)，用这个接口可以快速初始化所有资源。这也是我想写<code>parse_xml.cpp</code>代码的原因所在。</p>
+<p>当然不符合“每个子标签格式相同”的这个场景也没问题，因为这里用的是<code>map</code>，对于<code>key</code>没有任何要求。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vector&lt;map&lt;string, string&gt; &gt; GetChildDataArray(const string&amp; path);</span><br></pre></td></tr></table></figure>
+<p>仔细看这个接口，由于孙标签是<code>map</code>，所以一个子标签下的孙标签的标签名不能相同。由于子标签是<code>vector</code>，就是说子标签的标签名不会存储在<code>vector&lt;map&lt;string, string&gt; &gt;</code>当中，所以子标签的标签名随便写。</p>
+<p>其实刚开始我是没有设计这个接口的，但是因为<code>parse_json.cpp</code>当中有获取数组的接口，所以我在<code>xml</code>的解析当中也就顺带实现了这么一个接口。</p>
+<h3 id="得到一个标签的attribute"><a href="#得到一个标签的attribute" class="headerlink" title="得到一个标签的attribute"></a>得到一个标签的<code>attribute</code></h3><p>已经知道标签的路径，和<code>attribute</code>的名字，就能获取<code>attribute</code>的值。<br>比如</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&lt;errors&gt;</span><br><span class="line">  &lt;error id=&quot;DB_ERROR_EXECUTE&quot; value=&quot;1&quot; prompt=&quot;操作数据库失败&quot; msg=&quot;操作数据库失败&quot; test=&quot;ttttt&quot;/&gt;</span><br><span class="line">  &lt;error id=&quot;DB_ERROR_COMMAND&quot; value=&quot;2&quot; prompt=&quot;创建数据库操作指令失败&quot; msg=&quot;创建数据库操作指令失败&quot;/&gt;</span><br><span class="line">&lt;/errors&gt;</span><br></pre></td></tr></table></figure>
+<p>这种情况，根据路径<code>errors.error</code>能获取到两个标签，那么我的这个接口就只能返回第一个标签指定的<code>attribute</code>。这个接口只能处理一个路径下只有一个标签的情况。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">string GetAttr(string path, const string&amp; attr);</span><br></pre></td></tr></table></figure>
+
+<h3 id="得到一组attribute"><a href="#得到一组attribute" class="headerlink" title="得到一组attribute"></a>得到一组<code>attribute</code></h3><p>如果要获得<code>errors</code>这个父标签下的所有子标签的指定的<code>attribute</code>，就可以使用这个接口：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vector&lt;string&gt; GetAttrArray(string path, const string&amp; attr);</span><br></pre></td></tr></table></figure>
+<p>比如这样使用</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GetAttrArray(&quot;errors&quot;, &quot;id&quot;);</span><br></pre></td></tr></table></figure>
+<p>获取<code>errors</code>标签下所有子标签的<code>id</code>这个<code>attribute</code>。</p>
+<h3 id="根据已经知道的attribute去查找未知的attribute"><a href="#根据已经知道的attribute去查找未知的attribute" class="headerlink" title="根据已经知道的attribute去查找未知的attribute"></a>根据已经知道的<code>attribute</code>去查找未知的<code>attribute</code></h3><p>我认为更多的关于<code>attribute</code>的使用是用这个接口</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">string GetAttrByAttr(string path, const string&amp; know_attr, const string&amp; know_value, const string&amp; attr);</span><br></pre></td></tr></table></figure>
+<p>比如已知了<code>id</code>，要想拿到<code>value</code>。很多情况下在自己的代码当中要用到错误码的时候，都是用<code>string</code>类型的，这个时候，就要用到这个接口，根据<code>id</code>来找到错误码的对应的值。</p>
+<p>比如:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">GetAttr(&quot;errors&quot;, &quot;id&quot;, &quot;DB_ERROR_EXECUTE&quot;, &quot;value&quot;);</span><br></pre></td></tr></table></figure>
+<p>就是在<code>errors</code>标签下遍历，找到<code>id</code>等于<code>DB_ERROR_EXECUTE</code>这个标签，并取出这个标签当中<code>value</code>这个<code>attribute</code>的值。<br>根据这个接口就能够建立起来<code>attribute</code>到<code>attribute</code>的映射关系。</p>
+<h2 id="插入数据的操作"><a href="#插入数据的操作" class="headerlink" title="插入数据的操作"></a>插入数据的操作</h2><p>我觉得<code>xml</code>和<code>json</code>多用于配置文件，绝大多数情况下都是程序读取配置文件，而不是程序写入配置文件，写配置文件只要人为写入就可以了，而且配置文件都是具有重复性，只要复制下来改一改就好了。</p>
+<p>但是我在这里还是实现了几个写配置文件的接口。</p>
+<h3 id="加入一个-lt-key-gt-value-lt-key-gt-标签"><a href="#加入一个-lt-key-gt-value-lt-key-gt-标签" class="headerlink" title="加入一个&lt;key&gt;value&lt;/key&gt;标签"></a>加入一个<code>&lt;key&gt;value&lt;/key&gt;</code>标签</h3><p>最简单的形式，自己构建一个路径，把路径和值传给接口：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">void PutChildData(const string&amp; key, const string&amp; value);</span><br></pre></td></tr></table></figure>
+<p>比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">PutChildData(&quot;testput.a.b.c&quot;, &quot;1&quot;);</span><br></pre></td></tr></table></figure>
+<p>就能够产生这种<code>xml</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&lt;testput&gt;</span><br><span class="line">  &lt;a&gt;</span><br><span class="line">    &lt;b&gt;</span><br><span class="line">      &lt;c&gt;&quot;1&quot;&lt;/c&gt;</span><br><span class="line">    &lt;/b&gt;</span><br><span class="line">  &lt;/a&gt;</span><br><span class="line">&lt;/testput&gt;</span><br></pre></td></tr></table></figure>
+<p><code>testput</code>这个标签并不需要已经存在，同理<code>a</code>，<code>b</code>，<code>c</code>也是。</p>
+<h3 id="插入一个父标签"><a href="#插入一个父标签" class="headerlink" title="插入一个父标签"></a>插入一个父标签</h3><p>由于使用了<code>map</code>所以插入的数据的标签不一样。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">void PutChildDataMap(const string&amp; key, const map&lt;string, string&gt;&amp; key_value_map);</span><br></pre></td></tr></table></figure>
+<p>比如说我要插入一个<code>&lt;newchild&gt;</code>的父标签在这个<code>xml</code>当中：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">&lt;child&gt;</span><br><span class="line">&lt;a&gt;&lt;/a&gt;</span><br><span class="line">&lt;b&gt;&lt;/b&gt;</span><br><span class="line">&lt;/child&gt;</span><br><span class="line">&lt;/root&gt;</span><br></pre></td></tr></table></figure>
+
+<p>那就应该这样用：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">myMap.insert(make_pair(&quot;a&quot;, &quot;1&quot;));</span><br><span class="line">myMap.insert(make_pair(&quot;b&quot;, &quot;2&quot;));</span><br><span class="line">PutChildData(&quot;root.newchild&quot;, myMap);</span><br></pre></td></tr></table></figure>
+
+<p>得到结果是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">&lt;root&gt;</span><br><span class="line">&lt;child&gt;</span><br><span class="line">&lt;a&gt;&lt;/a&gt;</span><br><span class="line">&lt;b&gt;&lt;/b&gt;</span><br><span class="line">&lt;/child&gt;</span><br><span class="line">&lt;newchild&gt;</span><br><span class="line">&lt;a&gt;&quot;1&quot;&lt;/a&gt;</span><br><span class="line">&lt;b&gt;&quot;2&quot;&lt;/b&gt;</span><br><span class="line">&lt;/newchild&gt;</span><br><span class="line">&lt;/root&gt; </span><br></pre></td></tr></table></figure>
+
+<h3 id="插入一个数组"><a href="#插入一个数组" class="headerlink" title="插入一个数组"></a>插入一个数组</h3><p>这个只要重复调用上面的“插入一系列数据”的接口就可以了。</p>
+<h3 id="插入一个新的attribute"><a href="#插入一个新的attribute" class="headerlink" title="插入一个新的attribute"></a>插入一个新的<code>attribute</code></h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">void PutAttr(string path, const string&amp; attribute, const string&amp; attrvalue);</span><br></pre></td></tr></table></figure>
+
+<p>这个接口对应的是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">string GetAttr(string path, const string&amp; attr);</span><br></pre></td></tr></table></figure>
+<p>同样的，调用<code>PutAttr</code>接口的路径下也只能找到唯一的一个标签，否则只会对第一个标签做操作。<br>使用方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">PutAttr(&quot;errors.error&quot;, &quot;id&quot;, &quot;DB_ERROR_EXECUTE&quot;);</span><br></pre></td></tr></table></figure>
+<p>得到结果</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&lt;errors&gt;</span><br><span class="line">   &lt;error id=&quot;DB_ERROR_EXECUTE&quot;/&gt;</span><br><span class="line">&lt;/errors&gt;</span><br></pre></td></tr></table></figure>
+
+<p>至于在一组标签中都插入<code>attribute</code>的接口我觉得这个实现实在是没有必要，因为如果设计出来必然是这样的形式:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">void PutAttrArray(string path, const string&amp; attr, const string&amp; attrvalue);</span><br></pre></td></tr></table></figure>
+<p>这样操作的结果就是在一组标签下都加入相同的<code>attribute</code>，关键还是<code>attribute</code>的值都一模一样，那这种操作根本没有意义，因为每一个标签都有相同的<code>attribute</code>的值，毫无区分性可言。</p>
+<h3 id="创建一个新行，并插入一组attribute，"><a href="#创建一个新行，并插入一组attribute，" class="headerlink" title="创建一个新行，并插入一组attribute，"></a>创建一个新行，并插入一组<code>attribute</code>，</h3><p>如果对单一的标签插入一组<code>attribute</code>的话，可以反复调用上面的接口<code>PutAttr</code>，但是这里为了加入一行新行，我特意写了这个接口</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">void AddLineByAttr(string path, const map&lt;string, string&gt;&amp; key_value_map);</span><br></pre></td></tr></table></figure>
+
+<p>使用方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">myMap.insert(&quot;id&quot;, &quot;ttt&quot;);</span><br><span class="line">myMap.insert(&quot;value&quot;, &quot;000&quot;);</span><br><span class="line">myMap.insert(&quot;prompt&quot;, &quot;ppp&quot;);</span><br><span class="line">myMap.insert(&quot;msg&quot;, &quot;mmm&quot;);</span><br><span class="line">AddLineByAttribute(&quot;errors.error&quot;, myMap);</span><br></pre></td></tr></table></figure>
+<p>得到结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&lt;errors&gt;</span><br><span class="line">  &lt;error id=&quot;ttt&quot; value=&quot;000&quot; prompt=&quot;ppp&quot; msg=&quot;mmm&quot;/&gt;</span><br><span class="line">&lt;/errors&gt;</span><br></pre></td></tr></table></figure>
+
+<h3 id="保存结果"><a href="#保存结果" class="headerlink" title="保存结果"></a>保存结果</h3><p>在对<code>xml</code>进行写入之后，不要忘记调用接口</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">void SaveConfig();</span><br></pre></td></tr></table></figure>
+<p>来保存结果。<br>因为之前的写入都是写入到<code>ptree</code>这个数据结构当中的，使用这个接口将<code>ptree</code>的数据同步到<code>xml</code>文件。</p>
+<h2 id="我的测试详情请访问test-xml-cpp"><a href="#我的测试详情请访问test-xml-cpp" class="headerlink" title="我的测试详情请访问test_xml.cpp"></a>我的测试详情请访问<a target="_blank" rel="noopener" href="https://github.com/adairjun/MQueue/blob/master/gtest/test_xml.cpp">test_xml.cpp</a></h2><h2 id="最后贴上完整的源代码："><a href="#最后贴上完整的源代码：" class="headerlink" title="最后贴上完整的源代码："></a>最后贴上完整的源代码：</h2><h2 id="parse-xml-h"><a href="#parse-xml-h" class="headerlink" title="parse_xml.h"></a><code>parse_xml.h</code></h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br></pre></td><td class="code"><pre><span class="line">#ifndef MQUEUE_INCLUDE_PARSE_XML_H_</span><br><span class="line">#define MQUEUE_INCLUDE_PARSE_XML_H_</span><br><span class="line"></span><br><span class="line">/* 以前一直都是把解析xml文件的代码放在池的构造函数当中,这里把它独立出来</span><br><span class="line"> *  使用boost的xml解析库,也推荐使用rapidxml,而且boost的xml解析库用的就是rapidxml</span><br><span class="line"> */</span><br><span class="line"></span><br><span class="line">#include &lt;string&gt;</span><br><span class="line">#include &lt;vector&gt; </span><br><span class="line">#include &lt;map&gt;</span><br><span class="line">#include &lt;boost/shared_ptr.hpp&gt;</span><br><span class="line">#include &lt;boost/property_tree/ptree.hpp&gt;</span><br><span class="line"></span><br><span class="line">using std::string;</span><br><span class="line">using std::vector;</span><br><span class="line">using std::map;</span><br><span class="line">using std::make_pair;</span><br><span class="line">using boost::property_tree::ptree;</span><br><span class="line"></span><br><span class="line">typedef boost::shared_ptr&lt;boost::property_tree::ptree&gt; ptreePtr;</span><br><span class="line"></span><br><span class="line">class ParseXmlObj &#123;</span><br><span class="line"> public:</span><br><span class="line">  explicit ParseXmlObj();</span><br><span class="line">  explicit ParseXmlObj(string configPath);</span><br><span class="line">  virtual ~ParseXmlObj();</span><br><span class="line">  ParseXmlObj(const ParseXmlObj&amp;) = delete;</span><br><span class="line">  ParseXmlObj&amp; operator=(const ParseXmlObj&amp;) = delete;</span><br><span class="line">  void Dump() const;</span><br><span class="line"></span><br><span class="line">  string GetConfigPath() const;</span><br><span class="line"></span><br><span class="line">  ptreePtr GetPtree() const;</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * GetChildData(&quot;root.child.a&quot;) will get &lt;a&gt; </span><br><span class="line">   * &lt;root&gt;</span><br><span class="line">   *   &lt;child&gt;</span><br><span class="line">   *     &lt;a&gt;&lt;/a&gt;</span><br><span class="line">   *     &lt;b&gt;&lt;/b&gt;</span><br><span class="line">   *   &lt;/child&gt;</span><br><span class="line">   * &lt;/root&gt;</span><br><span class="line">   */</span><br><span class="line">  string GetChildData(const string&amp; path);</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * GetChildData(&quot;root.child&quot;) will get &lt;a&gt; and &lt;b&gt;</span><br><span class="line">   * &lt;root&gt;</span><br><span class="line">   *   &lt;child&gt;</span><br><span class="line">   *     &lt;a&gt;&lt;/a&gt;</span><br><span class="line">   *     &lt;b&gt;&lt;/b&gt;</span><br><span class="line">   *   &lt;/child&gt;</span><br><span class="line">   * &lt;/root&gt;</span><br><span class="line">   */</span><br><span class="line">  map&lt;string, string&gt; GetChildDataMap(const string&amp; path);</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * 请注意这里和parse_json当中的GetChildData的区别，严格的来说xml并没有数组的概念</span><br><span class="line">   * 这里只是为了方便拿数据所以实现了这个接口</span><br><span class="line">   * GetChildData(&quot;root&quot;) will get &lt;a&gt; and &lt;b&gt;</span><br><span class="line">   * &lt;root&gt;</span><br><span class="line">   *   &lt;child&gt;</span><br><span class="line">   *     &lt;a&gt;&lt;/a&gt;</span><br><span class="line">   *     &lt;b&gt;&lt;/b&gt;</span><br><span class="line">   *   &lt;/child&gt;</span><br><span class="line">   *   &lt;child&gt;</span><br><span class="line">   *     &lt;a&gt;&lt;/a&gt;</span><br><span class="line">   *     &lt;b&gt;&lt;/b&gt;</span><br><span class="line">   *   &lt;/child&gt;</span><br><span class="line">   * &lt;/root&gt;</span><br><span class="line">   */</span><br><span class="line">  vector&lt;map&lt;string, string&gt; &gt; GetChildDataArray(const string&amp; path);</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * get attribute by path</span><br><span class="line">   * GetAttr(&quot;errors.error&quot;, &quot;id&quot;) get the first attribute</span><br><span class="line">   *  &lt;errors&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_EXECUTE&quot; value=&quot;1&quot; prompt=&quot;操作数据库失败&quot; msg=&quot;操作数据库失败&quot; test=&quot;ttttt&quot;/&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_COMMAND&quot; value=&quot;2&quot; prompt=&quot;创建数据库操作指令失败&quot; msg=&quot;创建数据库操作指令失败&quot;/&gt;</span><br><span class="line">   *  &lt;/errors&gt;</span><br><span class="line">   * the result is &quot;1&quot;</span><br><span class="line">   */</span><br><span class="line">  string GetAttr(string path, const string&amp; attr);</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * get attribute by path</span><br><span class="line">   * GetAttrArray(&quot;errors&quot;, &quot;id&quot;) get the first attribute</span><br><span class="line">   *  &lt;errors&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_EXECUTE&quot; value=&quot;1&quot; prompt=&quot;操作数据库失败&quot; msg=&quot;操作数据库失败&quot; test=&quot;ttttt&quot;/&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_COMMAND&quot; value=&quot;2&quot; prompt=&quot;创建数据库操作指令失败&quot; msg=&quot;创建数据库操作指令失败&quot;/&gt;</span><br><span class="line">   *  &lt;/errors&gt;</span><br><span class="line">   * the result is a vector</span><br><span class="line">   */</span><br><span class="line">  vector&lt;string&gt; GetAttrArray(string path, const string&amp; attr);</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * get attribute by path and attribute</span><br><span class="line">   * GetAttr(&quot;errors&quot;, &quot;id&quot;, &quot;DB_ERROR_EXECUTE&quot;, &quot;value&quot;) get the &quot;value&quot; attribute where &quot;id&quot; is &quot;DB_ERROR_EXECUTE&quot;</span><br><span class="line">   * 注意这个接口的path传的是errors 而不是errors.error</span><br><span class="line">   *  &lt;errors&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_EXECUTE&quot; value=&quot;1&quot; prompt=&quot;操作数据库失败&quot; msg=&quot;操作数据库失败&quot; test=&quot;ttttt&quot;/&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_COMMAND&quot; value=&quot;2&quot; prompt=&quot;创建数据库操作指令失败&quot; msg=&quot;创建数据库操作指令失败&quot;/&gt;</span><br><span class="line">   *  &lt;/errors&gt;</span><br><span class="line">   * result is &quot;1&quot;</span><br><span class="line">   */</span><br><span class="line">  string GetAttrByAttr(string path, const string&amp; know_attr, const string&amp; know_value, const string&amp; attr);</span><br><span class="line"></span><br><span class="line">  //===========================================================</span><br><span class="line">  /*</span><br><span class="line">   * PutChildData(&quot;testput&quot;, &quot;testput&quot;) will add &quot;testput&quot; in</span><br><span class="line">   * &lt;root&gt;</span><br><span class="line">   *   &lt;child&gt;</span><br><span class="line">   *     &lt;a&gt;&lt;/a&gt;</span><br><span class="line">   *     &lt;b&gt;&lt;/b&gt;</span><br><span class="line">   *   &lt;/child&gt;</span><br><span class="line">   * &lt;/root&gt;</span><br><span class="line">   * new:</span><br><span class="line">   * &lt;root&gt;</span><br><span class="line">   *   &lt;child&gt;</span><br><span class="line">   *     &lt;a&gt;&lt;/a&gt;</span><br><span class="line">   *     &lt;b&gt;&lt;/b&gt;</span><br><span class="line">   *   &lt;/child&gt;</span><br><span class="line">   * &lt;/root&gt;</span><br><span class="line">   * &lt;testput&gt;&quot;testput&quot;&lt;/testput&gt;</span><br><span class="line">   */</span><br><span class="line">  void PutChildData(const string&amp; key, const string&amp; value);</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * myMap.insert(make_pair(&quot;a&quot;, &quot;1&quot;))  myMap.insert(make_pair(&quot;b&quot;, &quot;2&quot;))</span><br><span class="line">   * PutChildData(&quot;root.newchild&quot;, myMap) will add &quot;newchild&quot; in</span><br><span class="line">   * &lt;root&gt;</span><br><span class="line">   *   &lt;child&gt;</span><br><span class="line">   *     &lt;a&gt;&lt;/a&gt;</span><br><span class="line">   *     &lt;b&gt;&lt;/b&gt;</span><br><span class="line">   *   &lt;/child&gt;</span><br><span class="line">   * &lt;/root&gt;</span><br><span class="line">   * new:</span><br><span class="line">   * &lt;root&gt;</span><br><span class="line">   *   &lt;child&gt;</span><br><span class="line">   *     &lt;a&gt;&lt;/a&gt;</span><br><span class="line">   *     &lt;b&gt;&lt;/b&gt;</span><br><span class="line">   *   &lt;/child&gt;</span><br><span class="line">   *   &lt;newchild&gt;</span><br><span class="line">   *     &lt;a&gt;&lt;/a&gt;</span><br><span class="line">   *     &lt;b&gt;&lt;/b&gt;</span><br><span class="line">   *   &lt;/newchild&gt;</span><br><span class="line">   * &lt;/root&gt; </span><br><span class="line">   */</span><br><span class="line">  void PutChildDataMap(const string&amp; key, const map&lt;string, string&gt;&amp; key_value_map);</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * 上面说过了xml并没有数组的概念,所以这里没有 PutChildDataArray()函数</span><br><span class="line">   */</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * PutAttr(&quot;errors.error&quot;, &quot;id&quot;, &quot;DB_ERROR_EXECUTE&quot;) </span><br><span class="line">   * &lt;error id=&quot;DB_ERROR_EXECUTE&quot;/&gt;</span><br><span class="line">   */</span><br><span class="line">  void PutAttr(string path, const string&amp; attribute, const string&amp; attrvalue);</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * 这个通过attribute找到对应的标签，再在标签中加入一个attribute的功能很难实现,所以这个函数就没有实现 PutAttrByAttr()</span><br><span class="line">   * 而且我觉得要用到这个功能会比较少</span><br><span class="line">   */</span><br><span class="line">   </span><br><span class="line">  /*</span><br><span class="line">   *</span><br><span class="line">   * add a new line in xml </span><br><span class="line">   * myMap.insert(&quot;id&quot;, &quot;ttt&quot;);</span><br><span class="line">   * myMap.insert(&quot;value&quot;, &quot;000&quot;);</span><br><span class="line">   * myMap.insert(&quot;prompt&quot;, &quot;ppp&quot;);</span><br><span class="line">   * myMap.insert(&quot;msg&quot;, &quot;mmm&quot;);</span><br><span class="line">   * AddLineByAttribute(&quot;errors.error&quot;, myMap);</span><br><span class="line">   *  &lt;errors&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_EXECUTE&quot; value=&quot;1&quot; prompt=&quot;操作数据库失败&quot; msg=&quot;操作数据库失败&quot; /&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_COMMAND&quot; value=&quot;2&quot; prompt=&quot;创建数据库操作指令失败&quot; msg=&quot;创建数据库操作指令失败&quot;/&gt;</span><br><span class="line">   *  &lt;/errors&gt;</span><br><span class="line">   * new:</span><br><span class="line">   *  &lt;errors&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_EXECUTE&quot; value=&quot;1&quot; prompt=&quot;操作数据库失败&quot; msg=&quot;操作数据库失败&quot; /&gt;</span><br><span class="line">   *  &lt;error id=&quot;DB_ERROR_COMMAND&quot; value=&quot;2&quot; prompt=&quot;创建数据库操作指令失败&quot; msg=&quot;创建数据库操作指令失败&quot;/&gt;</span><br><span class="line">   *  &lt;error id=&quot;ttt&quot; value=&quot;000&quot; prompt=&quot;ppp&quot; msg=&quot;mmm&quot;/&gt;</span><br><span class="line">   *  &lt;/errors&gt;</span><br><span class="line">   */</span><br><span class="line">  void AddLineByAttr(string path, const map&lt;string, string&gt;&amp; key_value_map);</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * save config</span><br><span class="line">   */</span><br><span class="line">  void SaveConfig();</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  string configPath_; </span><br><span class="line">  //这里不用ptree对象而用指针的意义在于如果使用ptree对象的话，构造的时候就必须完全构造这个对象</span><br><span class="line">  ptreePtr pt_;</span><br><span class="line">  //ptree* pt_;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">typedef boost::shared_ptr&lt;ParseXmlObj&gt; ParseXmlObjPtr;</span><br><span class="line">#endif /* MQUEUE_INCLUDE_PARSE_XML_H */</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+<h2 id="parse-xml-cpp"><a href="#parse-xml-cpp" class="headerlink" title="parse_xml.cpp"></a><code>parse_xml.cpp</code></h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br></pre></td><td class="code"><pre><span class="line">#include &quot;MQueue/parse_xml.h&quot;</span><br><span class="line">#include &lt;boost/property_tree/xml_parser.hpp&gt;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">ParseXmlObj::ParseXmlObj() </span><br><span class="line">    : pt_(new ptree) &#123;</span><br><span class="line">    configPath_ = &quot;../config/messageQueue.xml&quot;;</span><br><span class="line">    //pt_ = new ptree;</span><br><span class="line">    boost::property_tree::read_xml(configPath_, *pt_);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">ParseXmlObj::ParseXmlObj(string configPath)</span><br><span class="line">    : configPath_(configPath), pt_(new ptree) &#123;</span><br><span class="line">    //pt_ = new ptree;</span><br><span class="line">	boost::property_tree::read_xml(configPath_, *pt_);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">ParseXmlObj::~ParseXmlObj() &#123;</span><br><span class="line">  //delete pt_;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void ParseXmlObj::Dump() const &#123;</span><br><span class="line">  printf(&quot;\n=====ParseXmlObj Dump START ========== \n&quot;);</span><br><span class="line">  printf(&quot;configPath__=%s &quot;, configPath_.c_str());</span><br><span class="line">  //printf(&quot;pt_=%p &quot;, pt_);</span><br><span class="line">  printf(&quot;\n===ParseXMlObj DUMP END ============\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">string ParseXmlObj::GetConfigPath() const &#123;</span><br><span class="line">	return configPath_;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">ptreePtr ParseXmlObj::GetPtree() const &#123;</span><br><span class="line">	return pt_;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">string ParseXmlObj::GetChildData(const string&amp; path) &#123;</span><br><span class="line">  return pt_-&gt;get&lt;string&gt;(path);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">map&lt;string, string&gt; ParseXmlObj::GetChildDataMap(const string&amp; path) &#123;</span><br><span class="line">  map&lt;string, string&gt; key_value_map;</span><br><span class="line"> </span><br><span class="line">  auto child = pt_-&gt;get_child(path);</span><br><span class="line">  for (auto pos = child.begin(); pos!= child.end(); ++pos) &#123;</span><br><span class="line">    key_value_map.insert(make_pair(pos-&gt;first, pos-&gt;second.data()));</span><br><span class="line">  &#125;</span><br><span class="line">  return std::move(key_value_map);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">vector&lt;map&lt;string, string&gt; &gt; ParseXmlObj::GetChildDataArray(const string&amp; path) &#123;</span><br><span class="line">  vector&lt;map&lt;string, string&gt; &gt; result_array;</span><br><span class="line">  map&lt;string, string&gt; key_value_map;</span><br><span class="line"> </span><br><span class="line">  auto child = pt_-&gt;get_child(path);</span><br><span class="line">  for (auto pos = child.begin(); pos!= child.end(); ++pos) &#123;</span><br><span class="line">    auto nextchild = pos-&gt;second.get_child(&quot;&quot;);</span><br><span class="line">    for (auto nextpos = nextchild.begin(); nextpos!= nextchild.end(); ++nextpos) &#123;</span><br><span class="line">      key_value_map.insert(make_pair(nextpos-&gt;first, nextpos-&gt;second.data()));</span><br><span class="line">    &#125;</span><br><span class="line">    result_array.push_back(key_value_map);</span><br><span class="line">    key_value_map.clear();</span><br><span class="line">  &#125;</span><br><span class="line">  return std::move(result_array);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">string ParseXmlObj::GetAttr(string path, const string&amp; attr) &#123;</span><br><span class="line">  if(pt_ == NULL || attr == &quot;&quot;)</span><br><span class="line">    return &quot;&quot;;</span><br><span class="line">  if(path != &quot;&quot;)&#123;</span><br><span class="line">    path += &quot;.&quot;; //add the domain descriptor</span><br><span class="line">  &#125;</span><br><span class="line">  path += &quot;&lt;xmlattr&gt;.&quot;;</span><br><span class="line">  path += attr;</span><br><span class="line">  return pt_-&gt;get&lt;string&gt;(path, &quot;&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">vector&lt;string&gt; ParseXmlObj::GetAttrArray(string path, const string&amp; attr) &#123;</span><br><span class="line">  vector&lt;string&gt; result;</span><br><span class="line">  if (pt_ != NULL &amp;&amp; attr != &quot;&quot;) &#123;</span><br><span class="line">    auto child = pt_-&gt;get_child(path);</span><br><span class="line">    for (auto pos = child.begin(); pos!= child.end(); ++pos) &#123;</span><br><span class="line">      auto nextchild = pos-&gt;second.get_child(&quot;&quot;);</span><br><span class="line">      for (auto nextpos = nextchild.begin(); nextpos!= nextchild.end(); ++nextpos) &#123;</span><br><span class="line">        result.push_back(nextpos-&gt;second.get&lt;string&gt;(attr));</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  return std::move(result);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">string ParseXmlObj::GetAttrByAttr(string path, const string&amp; know_attr, const string&amp; know_value, const string&amp; attr) &#123;</span><br><span class="line">  string result = &quot;&quot;;</span><br><span class="line">  auto child = pt_-&gt;get_child(path);</span><br><span class="line">  for (auto pos = child.begin(); pos!= child.end(); ++pos) &#123;</span><br><span class="line">    auto nextchild = pos-&gt;second.get_child(&quot;&quot;);</span><br><span class="line">    for (auto nextpos = nextchild.begin(); nextpos!= nextchild.end(); ++nextpos) &#123;</span><br><span class="line">      if (nextpos-&gt;second.get&lt;string&gt;(know_attr) == know_value) &#123;</span><br><span class="line">        result = nextpos-&gt;second.get&lt;string&gt;(attr); </span><br><span class="line">        break;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  return result;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">void ParseXmlObj::PutChildData(const string&amp; key, const string&amp; value) &#123;</span><br><span class="line">  if(pt_ != NULL) &#123;</span><br><span class="line">    pt_-&gt;put(key, value);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void ParseXmlObj::PutChildDataMap(const string&amp; key, const map&lt;string, string&gt;&amp; key_value_map) &#123;</span><br><span class="line">  if(pt_ != NULL) &#123;</span><br><span class="line">    ptree child;</span><br><span class="line">    for (auto myPair : key_value_map) &#123;</span><br><span class="line">      child.put(myPair.first, myPair.second);</span><br><span class="line">    &#125;</span><br><span class="line">    pt_-&gt;add_child(key, child);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void ParseXmlObj::PutAttr(string path, const string&amp; attribute, const string&amp; attrvalue) &#123;</span><br><span class="line">  if (pt_ != NULL) &#123;</span><br><span class="line">	if(path != &quot;&quot;) &#123;</span><br><span class="line">	  path += &quot;.&quot;; //add the domain descriptor</span><br><span class="line">	&#125;</span><br><span class="line">	path += &quot;&lt;xmlattr&gt;.&quot;;</span><br><span class="line">	path += attribute;</span><br><span class="line">	pt_-&gt;put&lt;string&gt;(path, attrvalue);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void ParseXmlObj::AddLineByAttr(string path, const map&lt;string, string&gt;&amp; key_value_map) &#123;</span><br><span class="line">  if (pt_ != NULL) &#123;</span><br><span class="line">    ptree temp;</span><br><span class="line">    for (auto myPair : key_value_map) &#123;</span><br><span class="line">      temp.put&lt;string&gt;(&quot;&lt;xmlattr&gt;.&quot; + myPair.first, myPair.second.data());  </span><br><span class="line">    &#125; </span><br><span class="line">    pt_-&gt;add_child(path, temp);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void ParseXmlObj::SaveConfig() &#123;</span><br><span class="line">  if(pt_ != NULL) &#123;</span><br><span class="line">    boost::property_tree::write_xml(configPath_, *pt_);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/property-tree/">property_tree</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/boost/">boost</a><a href="/tags/property-tree/">property_tree</a><a href="/tags/xml/">xml</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/13/xml2/" data-title="使用boost::property_tree解析xml与json (二):parse_xml设计 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/13/json/" title="使用boost::property_tree解析xml与json (三):parse_json设计">
+  <strong>上一篇：</strong><br/>
+  <span>
+  使用boost::property_tree解析xml与json (三):parse_json设计</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/13/xml/"  title="使用boost::property_tree解析xml与json (一):概述">
+ <strong>下一篇：</strong><br/> 
+ <span>使用boost::property_tree解析xml与json (一):概述
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#class%E7%9A%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">1.</span> <span class="toc-text">class的设计</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%89%E5%85%B3%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96%EF%BC%9A"><span class="toc-number">1.1.</span> <span class="toc-text">有关智能指针的初始化：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%89%E5%85%B3std-move"><span class="toc-number">1.2.</span> <span class="toc-text">有关std::move</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%83%B3%E6%B3%95"><span class="toc-number">2.</span> <span class="toc-text">想法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%9B%B4%E6%8E%A5%E8%8E%B7%E5%8F%96xml%E7%9A%84%E6%A0%87%E7%AD%BE%E7%9A%84%E5%80%BC%EF%BC%8C"><span class="toc-number">2.1.</span> <span class="toc-text">直接获取xml的标签的值，</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96%E6%89%80%E6%9C%89%E5%AD%90%E6%A0%87%E7%AD%BE"><span class="toc-number">2.2.</span> <span class="toc-text">获取所有子标签</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96%E6%89%80%E6%9C%89%E5%AD%99%E6%A0%87%E7%AD%BE"><span class="toc-number">2.3.</span> <span class="toc-text">获取所有孙标签</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BE%97%E5%88%B0%E4%B8%80%E4%B8%AA%E6%A0%87%E7%AD%BE%E7%9A%84attribute"><span class="toc-number">2.4.</span> <span class="toc-text">得到一个标签的attribute</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BE%97%E5%88%B0%E4%B8%80%E7%BB%84attribute"><span class="toc-number">2.5.</span> <span class="toc-text">得到一组attribute</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B9%E6%8D%AE%E5%B7%B2%E7%BB%8F%E7%9F%A5%E9%81%93%E7%9A%84attribute%E5%8E%BB%E6%9F%A5%E6%89%BE%E6%9C%AA%E7%9F%A5%E7%9A%84attribute"><span class="toc-number">2.6.</span> <span class="toc-text">根据已经知道的attribute去查找未知的attribute</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE%E7%9A%84%E6%93%8D%E4%BD%9C"><span class="toc-number">3.</span> <span class="toc-text">插入数据的操作</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8A%A0%E5%85%A5%E4%B8%80%E4%B8%AA-lt-key-gt-value-lt-key-gt-%E6%A0%87%E7%AD%BE"><span class="toc-number">3.1.</span> <span class="toc-text">加入一个&lt;key&gt;value&lt;&#x2F;key&gt;标签</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E4%B8%80%E4%B8%AA%E7%88%B6%E6%A0%87%E7%AD%BE"><span class="toc-number">3.2.</span> <span class="toc-text">插入一个父标签</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E4%B8%80%E4%B8%AA%E6%95%B0%E7%BB%84"><span class="toc-number">3.3.</span> <span class="toc-text">插入一个数组</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E4%B8%80%E4%B8%AA%E6%96%B0%E7%9A%84attribute"><span class="toc-number">3.4.</span> <span class="toc-text">插入一个新的attribute</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AA%E6%96%B0%E8%A1%8C%EF%BC%8C%E5%B9%B6%E6%8F%92%E5%85%A5%E4%B8%80%E7%BB%84attribute%EF%BC%8C"><span class="toc-number">3.5.</span> <span class="toc-text">创建一个新行，并插入一组attribute，</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BF%9D%E5%AD%98%E7%BB%93%E6%9E%9C"><span class="toc-number">3.6.</span> <span class="toc-text">保存结果</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%91%E7%9A%84%E6%B5%8B%E8%AF%95%E8%AF%A6%E6%83%85%E8%AF%B7%E8%AE%BF%E9%97%AEtest-xml-cpp"><span class="toc-number">4.</span> <span class="toc-text">我的测试详情请访问test_xml.cpp</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%80%E5%90%8E%E8%B4%B4%E4%B8%8A%E5%AE%8C%E6%95%B4%E7%9A%84%E6%BA%90%E4%BB%A3%E7%A0%81%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">最后贴上完整的源代码：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#parse-xml-h"><span class="toc-number">6.</span> <span class="toc-text">parse_xml.h</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#parse-xml-cpp"><span class="toc-number">7.</span> <span class="toc-text">parse_xml.cpp</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

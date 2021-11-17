@@ -1,0 +1,773 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>g++ 静态库 动态库 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="最近重读了《程序员的自我修养：连接,装载与库》中的几个篇章，略过了有关编译器的底层细节。把工作中需要用到的知识抽取了出来转化成自己的知识。 从#include头文件谈起在一个test.h头文件当中 1234567#ifndef _TEST_H#define _TEST_H#include &lt;stdio.h&gt;void test() &amp;#123;  printf(&quot;hello,">
+<meta property="og:type" content="article">
+<meta property="og:title" content="g++ 静态库 动态库">
+<meta property="og:url" content="http://xiongjun.info/2015/11/29/g/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="最近重读了《程序员的自我修养：连接,装载与库》中的几个篇章，略过了有关编译器的底层细节。把工作中需要用到的知识抽取了出来转化成自己的知识。 从#include头文件谈起在一个test.h头文件当中 1234567#ifndef _TEST_H#define _TEST_H#include &lt;stdio.h&gt;void test() &amp;#123;  printf(&quot;hello,">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-11-29T08:56:56.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.087Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="g++">
+<meta property="article:tag" content="编译">
+<meta property="article:tag" content="连接">
+<meta property="article:tag" content="库">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/11/29/g/" title="g++ 静态库 动态库" itemprop="url">g++ 静态库 动态库</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-11-29T08:56:56.000Z" itemprop="datePublished"> 发表于 2015-11-29</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E-include%E5%A4%B4%E6%96%87%E4%BB%B6%E8%B0%88%E8%B5%B7"><span class="toc-number">1.</span> <span class="toc-text">从#include头文件谈起</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#g-%E6%89%BE%E5%A4%B4%E6%96%87%E4%BB%B6%E7%9A%84%E5%8F%82%E6%95%B0-I"><span class="toc-number">1.1.</span> <span class="toc-text">g++找头文件的参数 -I</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%EF%BC%9A"><span class="toc-number">1.2.</span> <span class="toc-text">问题：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E5%99%A8%E5%9C%A8%E9%A2%84%E5%A4%84%E7%90%86%E9%98%B6%E6%AE%B5%E5%81%9A%E7%9A%84%E4%BA%8B%E6%83%85%EF%BC%9A"><span class="toc-number">1.3.</span> <span class="toc-text">编译器在预处理阶段做的事情：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E4%B8%8E%E9%93%BE%E6%8E%A5"><span class="toc-number">2.</span> <span class="toc-text">编译与链接</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%EF%BC%9A-1"><span class="toc-number">2.1.</span> <span class="toc-text">问题：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%9D%99%E6%80%81%E5%BA%93%E4%B8%8E%E5%8A%A8%E6%80%81%E5%BA%93"><span class="toc-number">3.</span> <span class="toc-text">静态库与动态库</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9D%99%E6%80%81%E5%BA%93%E5%92%8C%E5%8A%A8%E6%80%81%E5%BA%93%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="toc-number">3.1.</span> <span class="toc-text">静态库和动态库的区别</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%89%E5%85%B3%E9%93%BE%E6%8E%A5%E6%97%B6%E5%80%99%E4%BD%BF%E7%94%A8-L%E5%8F%82%E6%95%B0"><span class="toc-number">3.2.</span> <span class="toc-text">有关链接时候使用-L参数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%EF%BC%9A-2"><span class="toc-number">3.3.</span> <span class="toc-text">问题：</span></a></li></ol></li></ol>
+		
+		</div>
+		
+		<p>最近重读了<a target="_blank" rel="noopener" href="http://book.douban.com/subject/3652388/">《程序员的自我修养：连接,装载与库》</a>中的几个篇章，略过了有关编译器的底层细节。把工作中需要用到的知识抽取了出来转化成自己的知识。</p>
+<h2 id="从-include头文件谈起"><a href="#从-include头文件谈起" class="headerlink" title="从#include头文件谈起"></a>从#include头文件谈起</h2><p>在一个<code>test.h</code>头文件当中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">#ifndef _TEST_H</span><br><span class="line">#define _TEST_H</span><br><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line">void test() &#123;</span><br><span class="line">  printf(&quot;hello, world\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line">#endif</span><br></pre></td></tr></table></figure>
+<p>再写一个<code>test.cpp</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">#include &quot;test.h&quot;</span><br><span class="line">int main() &#123;</span><br><span class="line">  test();</span><br><span class="line">  return 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>使用<code>g++</code>命令编译成可执行文件<code>test</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -o test test.cpp</span><br></pre></td></tr></table></figure>
+
+<p><strong>因为 #include “xx.h” 这个宏其实际意思就是把当前这一行删掉，把 xx.h 中的内容原封不动的插入在当前行的位置。</strong>所以这个头文件的命名后缀无论叫做.h还是.txt都没有关系.<br>比如把<code>test.h</code>更名为<code>test.txt</code><br>然后把<code>test.cpp</code>当中的<code>#include &quot;test.h&quot;</code> 更换成<code>#include &quot;test.txt&quot;</code><br>再编译一下</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -o test test.cpp</span><br></pre></td></tr></table></figure>
+<p>一样能执行。<br>但是可不能随便把<code>test.cpp</code>改成<code>test.doc</code>然后妄想使用<code>g++ -o test test.doc</code>来编译成功，这可是不行的。我们这里讨论的只是#include，也就是说讨论的只是预处理器，而编译的时候用到的编译器和连接器可都是认文件后缀的。</p>
+<h3 id="g-找头文件的参数-I"><a href="#g-找头文件的参数-I" class="headerlink" title="g++找头文件的参数 -I"></a>g++找头文件的参数 -I</h3><p>g++ 编译的时候寻找头文件的路径默认是<code>/usr/include</code>，可以在cpp文件当中指定需要头文件的路径，<br>比如我需要leveldb里面的db.h，那么在我的<code>test.cpp</code>代码中:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#include &quot;../../leveldb/include/leveldb/db.h&quot;</span><br></pre></td></tr></table></figure>
+<p>其中../../leveldb/include/leveldb/db.h是相对test.cpp的相对路径，因为db.h不存在于<code>/usr/include</code>当中。</p>
+<p>除了在cpp文件当中显式地指定头文件的路径之外，还可以使用g++的-I参数，况且在<a target="_blank" rel="noopener" href="http://zh-google-styleguide.readthedocs.org/en/latest/google-cpp-styleguide/contents/">google C++ style guide</a>当中提到了最好是用这种方法，不要在cpp文件当中去指定路径。比如我的<code>test.cpp</code>代码当中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#include &quot;db.h&quot;</span><br></pre></td></tr></table></figure>
+<p>那么我的编译命令就是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -I../../leveldb/include/leveldb -o test test.cpp</span><br></pre></td></tr></table></figure>
+<p>同理，如果我的<code>test.cpp</code>当中是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#include &quot;leveldb/db.h&quot;</span><br></pre></td></tr></table></figure>
+<p>那么我的编译命令就是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -I../../leveldb/include -o test test.cpp</span><br></pre></td></tr></table></figure>
+<p>如果我的<code>test.cpp</code>是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;leveldb/db.h&gt;</span><br></pre></td></tr></table></figure>
+<p>那么我就需要将<br><code>../../leveldb/include</code> 下面的这个leveldb目录cp到<code>/usr/include</code>当中，再使用命令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo idconfig</span><br></pre></td></tr></table></figure>
+<p>来更新一下链接器。<br>然后我的编译命令就是</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -o test test.cpp</span><br></pre></td></tr></table></figure>
+
+<h3 id="问题："><a href="#问题：" class="headerlink" title="问题："></a>问题：</h3><p>1，如果我只想使用头文件当中的一个函数，我却把整个头文件include进来，那么预处理的时候一替换岂不是出现了很多没用的代码？增加了编译时间？<br>答：是的，没错，多余的<code>#includes</code>会害得编译器花费不少时间展开更多文件，处理大量输入，确实引入了很多垃圾，但是它却省了你不少笔墨，并且整个版面也看起来清爽的多。如果是使用class当中的函数，<a target="_blank" rel="noopener" href="http://book.douban.com/subject/1842426/">Effective C++</a>和<a target="_blank" rel="noopener" href="http://zh-google-styleguide.readthedocs.org/en/latest/google-cpp-styleguide/contents/">google C++ style guide</a>当中提到解决方法，就是使用class声明（前置声明）来替代头文件，从而来避免多余的<code>#include</code>，减少代码的编译时间，它里面也提到了最后的结论：</p>
+<ul>
+<li>函数：用 <code>#include</code>.</li>
+<li>类模板：优先用 <code>#includes</code>.</li>
+<li>类：用前置声明固然不错，但小心点。若说不定，还是用 <code>#includes</code> 好了。</li>
+<li>千万别为了避免 <code>#includes</code> 而把数据成员改成指针。</li>
+</ul>
+<p>2，为什么经常看到与xxx.cpp同名的头文件xxx.h?<br>答：这是编写C++库的习惯：在xxx.h当中放入声明，而C++当中放入定义。我在下文的有关C++库的文章中将会说明。</p>
+<h3 id="编译器在预处理阶段做的事情："><a href="#编译器在预处理阶段做的事情：" class="headerlink" title="编译器在预处理阶段做的事情："></a>编译器在预处理阶段做的事情：</h3><p>首先是源代码<code>test.cpp</code>和<code>test.h</code>以及<code>test.h</code>当中的头文件<code>stdio.h</code>被预处理器预编译成一个.ii文件(C语言是变成一个.i文件)，预处理相当于执行了</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -E test.cpp -o test.ii</span><br></pre></td></tr></table></figure>
+<p>预处理阶段主要做的事情就是处理那些源代码文件中的以<code>#</code>开始的预处理指令。比如<code>#include</code>和<code>#define</code>等</p>
+<ul>
+<li>将所有的<code>#define</code>删除，并且展开所有的宏定义</li>
+<li>处理所有的条件预处理指令，比如<code>#if</code>,<code>#ifdef</code>,<code>#elif</code>,<code>#else</code>,<code>#endif</code></li>
+<li>处理<code>#include</code>的指令，将被include的文件插入到<code>#include</code>的位置，这个过程是递归进行的</li>
+<li>删除所有的注释<code>//</code>和<code>/**/</code></li>
+<li>添加行号和文件名标识，以便编译器的内置宏<code>__FILE__</code>和<code>__LINE__</code>能够使用</li>
+<li>保留所有的<code>#pragma</code>编译器指令，因为编译器要用到它们</li>
+</ul>
+<h2 id="编译与链接"><a href="#编译与链接" class="headerlink" title="编译与链接"></a>编译与链接</h2><p>编译就是把预处理完成的文件进行一系列词法分析，语法分析，语义分析以及优化后产生相应的汇编代码。编译过程相当于执行</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -S test.ii -o test.s</span><br></pre></td></tr></table></figure>
+<p>编译完成之后还需要汇编，就是把汇编代码转成<code>.o</code>的文件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -c test.s -o test.o</span><br></pre></td></tr></table></figure>
+<p>链接生成可执行文件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ test.o -o test</span><br></pre></td></tr></table></figure>
+
+<p>由于编译过程的词法分析，语法分析等等都是编译原理的内容，工作中基本上都是借助编译器来产生.o文件，更加值得学习的其实是链接的知识，因为在现代软件开发过程当中，软件动辄上百万行代码，如果都放在一个模块当中肯定无法想象，所以现代的软件都有成百上千个模块，这些模块相互依赖。如何将这写模块组合成单一的程序就是链接器要做的工作。</p>
+<h3 id="问题：-1"><a href="#问题：-1" class="headerlink" title="问题："></a>问题：</h3><p>1，为什么汇编不直接输出可执行文件反而要输出一个中间文件<code>.o</code>呢？<br>答：正是因为要将代码模块化管理，让一个可执行文件由多个o文件来生成，比汇编直接生成可执行文件要更方便管理。因为如果其中一个模块的代码需要改动的话，只需要重新编译单独模块的代码，就不需要编译整个项目。</p>
+<h2 id="静态库与动态库"><a href="#静态库与动态库" class="headerlink" title="静态库与动态库"></a>静态库与动态库</h2><p>承接上文，我们知道链接器的作用是把很多的.o链接在一起成为一个可执行文件，那么库的概念就是先把需要经常用到的.o先链接在一起变成一个库，然后在其他地方需要链接那些.o文件的时候就直接链接库文件就可以了，这样更加方便管理。当然了，这些.o文件当中可不能有main函数，否则就成了可执行文件，就不是库文件了。<br>先来看一个超级简单的例子：<br>add.h</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">#ifndef _ADD_H</span><br><span class="line">#define _ADD_H</span><br><span class="line"></span><br><span class="line">int add(int x, int y); </span><br><span class="line"></span><br><span class="line">#endif</span><br></pre></td></tr></table></figure>
+<p>add.cpp</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">int add(int x, int y) &#123;</span><br><span class="line">  return x + y;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>subtract.h</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">#ifndef _SUBTRACT_H</span><br><span class="line">#define _SUBTRACT_H</span><br><span class="line"></span><br><span class="line">int subtract(int x, int y); </span><br><span class="line"></span><br><span class="line">#endif</span><br></pre></td></tr></table></figure>
+<p>subtract.cpp</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">int subtract(int x, int y) &#123;</span><br><span class="line">  return x - y;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后编译成.o文件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">g++ -c add.cpp -o add.o</span><br><span class="line">g++ -c subtract.cpp -o subtract.o</span><br></pre></td></tr></table></figure>
+<p>将两个.o文件链接成库libtest.a</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ar crv libtest.a add.o subtract.o</span><br></pre></td></tr></table></figure>
+<p>然后写一个测试文件main.cpp，用到了add.cpp当中的add函数</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;iostream&gt;</span><br><span class="line">#include &quot;add.h&quot;</span><br><span class="line"></span><br><span class="line">using namespace std;</span><br><span class="line">int main() &#123;</span><br><span class="line">  cout &lt;&lt; add(1, 2) &lt;&lt; endl;</span><br><span class="line">  return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>将main.cpp编译成为可执行文件,编译时候连接库可以使用g++ 的 -L参数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -o main main.cpp -L. -ltest</span><br></pre></td></tr></table></figure>
+<p>执行main程序，可得到结果为3，说明用到了add.o当中的add函数</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[xiongjun@ubuntu ~/Desktop]% ./main </span><br><span class="line">3</span><br></pre></td></tr></table></figure>
+<p>我链接的是libtest.a这个库，但是用到的却是add.o当中的函数。说明了库中保存了add.o当中的内容，也就是说在写大型程序的过程当中，把相关的代码逻辑的.o文件放进一个库当中作为一个模块来管理，把main函数的.o独立出来，当main函数需要使用库当中的代码时，只需要include库提供的头文件，编译的时候再将库给链接进来就行了。</p>
+<h3 id="静态库和动态库的区别"><a href="#静态库和动态库的区别" class="headerlink" title="静态库和动态库的区别"></a>静态库和动态库的区别</h3><p>  我们通常把一些公用函数制作成函数库，供其它程序使用。函数库分为静态库和动态库两种。静态库在程序编译时会被连接到目标代码中，程序运行时将不再需要该静态库。动态库在程序编译时并不会被连接到目标代码中，而是在程序运行是才被载入，因此在程序运行时还需要动态库存在。</p>
+<p>  如果很多程序都使用了同一个库文件，那么如果使用静态库的话，那么这些程序当中都存在一份静态库的拷贝，当这些程序作为进程被装载进内存当中时，对内存空间是个不小的浪费，而使用动态库，只需要在内存当中保留一份动态库就可以了，在程序运行时期再载入。</p>
+<p>  由.o文件创建静态库的命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ar crv libtest.a add.o subtract.o</span><br></pre></td></tr></table></figure>
+
+<p>由.o文件创建动态库的命令：<br>动态库以.so结尾。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gcc -shared -fPCI -o libtest.so add.o subtract.o</span><br></pre></td></tr></table></figure>
+<p>-shared 该选项指定生成动态连接库（让连接器生成T类型的导出符号表，有时候也生成弱连接W类型的导出符号），不用该标志外部程序无法连接。相当于一个可执行文件。</p>
+<p>这里有一个-fPIC参数，表示编译为位置独立的代码，不用此选项的话编译后的代码是位置相关的。<br>PIC就是position independent code, -fPIC使.so文件的代码段变为真正意义上的共享。如果不加-fPIC,则加载.so文件的代码段时,代码段引用的数据对象需要重定位,重定位会修改代码段的内容,这就造成每个使用这个.so文件代码段的进程在内核里都会生成这个.so文件代码段的copy。这就和上面说的动态库只在内存当中保留一份的说法不符合。</p>
+<p>还有，如果在生成动态库的时候产生错误</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">relocation R_X86_64_32 against `.rodata&#x27; can not be used when making a shared object; recompile with -fPIC</span><br></pre></td></tr></table></figure>
+<p>这种错误出现于CPU是AMD64位的情况，解决方法是编译生成.o文件的时候也需要加上-fPIC选项</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -c -fPIC add.cpp -o add.o</span><br></pre></td></tr></table></figure>
+<h3 id="有关链接时候使用-L参数"><a href="#有关链接时候使用-L参数" class="headerlink" title="有关链接时候使用-L参数"></a>有关链接时候使用-L参数</h3><p>同g++的-I参数一样的，在链接库文件的时候，g++的默认路径是<code>/usr/lib</code>，使用-L可以指定其他的路径，-l（小写的L）作用是选择路径下的库的名字。因为C++的库都是用lib开头，静态库的名字为libxxxx.a，动态库的名字为libxxxx.so，使用-l参数就能去掉lib前缀，直接使用</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -o main main.cpp -L. -ltest</span><br></pre></td></tr></table></figure>
+<p>说明在<code>.</code>路径下寻找库文件，由于<code>g++</code>的机制是先找动态库，找不到动态库再找静态库，那么这里就是先找<code>libtest.so</code>的库文件，如果找不到，再去找<code>libtest.a</code>。</p>
+<p>在终端下使用<code>ldd</code>命令能查看可执行文件依赖的库：<br>比如我的<code>main</code>可执行文件的编译命令是:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g++ -o main main.cpp -L. -ltest</span><br></pre></td></tr></table></figure>
+<p>使用<code>ldd</code>之后：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">[xiongjun@ubuntu ~/Desktop]% ldd main</span><br><span class="line">        linux-vdso.so.1 =&gt;  (0x00007ffd475f1000)</span><br><span class="line">        libtest.so (0x00007f0264f9f000)</span><br><span class="line">        libstdc++.so.6 =&gt; /usr/lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007f0264c9b000)</span><br><span class="line">        libc.so.6 =&gt; /lib/x86_64-linux-gnu/libc.so.6 (0x00007f02648d6000)</span><br><span class="line">        libm.so.6 =&gt; /lib/x86_64-linux-gnu/libm.so.6 (0x00007f02645d0000)</span><br><span class="line">        /lib64/ld-linux-x86-64.so.2 (0x00007f02651a1000)</span><br><span class="line">        libgcc_s.so.1 =&gt; /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f02643ba000)</span><br></pre></td></tr></table></figure>
+<p>可以看到第二行出现了<code>libtest.so</code>的库文件。</p>
+<h3 id="问题：-2"><a href="#问题：-2" class="headerlink" title="问题："></a>问题：</h3><p>1，还是和头文件一样的问题，我的代码只需要库当中的一小部分函数，但是编译的时候把整个库给链接进来，那么岂不是增加了编译时间？<br>答：这里可不会像<code>#include</code>头文件一样增加编译时间，因为使用库是处于链接的阶段，编译已经完成了，链接库是链接器做的工作了。至于增大可执行程序的体积，这是一定会增大的，因为我们用到库当中的函数也只是用到一部分而已，但是这一点不用特别担心，基本上现在的程序设计都是遵守UNIX的编程艺术：do one thing, do it better。提供第三方库的程序员基本上都是在优化自己代码的逻辑，让库运行得更好，而不是增加一些不属于库提供功能的代码，比如libevent库当中不可能会增加http服务器的功能代码，所以只要用到这个库的核心功能，一般来说也增加不了多少程序的体积。</p>
+<p>2，编译的时候没有错误，但是运行的时候报错：error while loading shared libraries: xxx.so.x？<br>答：这是编译时链接库与运行时链接库的问题，在linux中可以查看编译时链接库的路径可以通过<code>LIBRARY_PATH</code>这个环境变量：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo $LIBRARY_PATH</span><br></pre></td></tr></table></figure>
+<p>但是由于g++可以指定链接库地址，所以这个环境变量显得无关紧要。</p>
+<p>查看运行时链接库的路径通过<code>LD_LIBRARY_PATH</code>环境变量：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo $LD_LIBRARY_PATH</span><br></pre></td></tr></table></figure>
+<p><code>LD_LIBRARY_PATH</code>：这个环境变量指示动态连接器可以装载动态库的路径。</p>
+<p>通过使用<code>export</code>的方法能解决运行时期报错的问题:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:.</span><br></pre></td></tr></table></figure>
+<p>接入<code>/usr/local/lib</code>和<code>.</code>路径，如果所需要的库在这两个路径下，那么问题得以解决。<br>在终端用 export 指令只是暂时改变 LD_LIBRARY_PATH 的值，重启之后该值又为空，靠谱方法为：在<code>~/.bashrc</code> 或者 <code>~/.bash_profile</code> 中加入该 <code>export</code> 语句，前者在每次登陆和每次打开 shell 都读取一次，后者只在登陆时读取一次。习惯是加到 <code>~/.bashrc</code> 中，在该文件的未尾可采用如下语句来使设置生效：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">　　export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:.</span><br></pre></td></tr></table></figure>
+
+<p>当然如果有<code>root</code>权限的话，可以修改<code>/etc/ld.so.conf</code>文件，然后调用 <code>/sbin/ldconfig</code>来达到同样的目的，不过如果没有<code>root</code>权限，那么只能采用输出<code>LD_LIBRARY_PATH</code>的方法了。</p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/%E7%BC%96%E8%AF%91/">编译</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/g/">g++</a><a href="/tags/编译/">编译</a><a href="/tags/连接/">连接</a><a href="/tags/库/">库</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/11/29/g/" data-title="g++ 静态库 动态库 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/11/29/regex/" title="C/C++ 使用正则表达式">
+  <strong>上一篇：</strong><br/>
+  <span>
+  C/C++ 使用正则表达式</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/11/08/git3/"  title="git使用总结(三)">
+ <strong>下一篇：</strong><br/> 
+ <span>git使用总结(三)
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E-include%E5%A4%B4%E6%96%87%E4%BB%B6%E8%B0%88%E8%B5%B7"><span class="toc-number">1.</span> <span class="toc-text">从#include头文件谈起</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#g-%E6%89%BE%E5%A4%B4%E6%96%87%E4%BB%B6%E7%9A%84%E5%8F%82%E6%95%B0-I"><span class="toc-number">1.1.</span> <span class="toc-text">g++找头文件的参数 -I</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%EF%BC%9A"><span class="toc-number">1.2.</span> <span class="toc-text">问题：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E5%99%A8%E5%9C%A8%E9%A2%84%E5%A4%84%E7%90%86%E9%98%B6%E6%AE%B5%E5%81%9A%E7%9A%84%E4%BA%8B%E6%83%85%EF%BC%9A"><span class="toc-number">1.3.</span> <span class="toc-text">编译器在预处理阶段做的事情：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E8%AF%91%E4%B8%8E%E9%93%BE%E6%8E%A5"><span class="toc-number">2.</span> <span class="toc-text">编译与链接</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%EF%BC%9A-1"><span class="toc-number">2.1.</span> <span class="toc-text">问题：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%9D%99%E6%80%81%E5%BA%93%E4%B8%8E%E5%8A%A8%E6%80%81%E5%BA%93"><span class="toc-number">3.</span> <span class="toc-text">静态库与动态库</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9D%99%E6%80%81%E5%BA%93%E5%92%8C%E5%8A%A8%E6%80%81%E5%BA%93%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="toc-number">3.1.</span> <span class="toc-text">静态库和动态库的区别</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9C%89%E5%85%B3%E9%93%BE%E6%8E%A5%E6%97%B6%E5%80%99%E4%BD%BF%E7%94%A8-L%E5%8F%82%E6%95%B0"><span class="toc-number">3.2.</span> <span class="toc-text">有关链接时候使用-L参数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%EF%BC%9A-2"><span class="toc-number">3.3.</span> <span class="toc-text">问题：</span></a></li></ol></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

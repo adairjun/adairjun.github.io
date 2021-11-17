@@ -1,0 +1,711 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>消息队列与共享内存(六)：System V共享内存 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="《UNPv2》当中说了“共享内存是可用IPC形式当中最快的。一旦这样的内存区映射到共享它的进程的地址空间，这些进程间数据的传递就不再涉及内核。这里说的不涉及内核的含义是：进程不再通过执行任何进入内核的系统调用来彼此传递数据。显然，内核必须建立允许各个进程共享该内存区的内存映射关系，然后一直管理该内存区（处理页面故障等）。” 一般的IPC是这个样子1，服务器通过read从输入文件读，read是进入内">
+<meta property="og:type" content="article">
+<meta property="og:title" content="消息队列与共享内存(六)：System V共享内存">
+<meta property="og:url" content="http://xiongjun.info/2016/02/16/mqueue6/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="《UNPv2》当中说了“共享内存是可用IPC形式当中最快的。一旦这样的内存区映射到共享它的进程的地址空间，这些进程间数据的传递就不再涉及内核。这里说的不涉及内核的含义是：进程不再通过执行任何进入内核的系统调用来彼此传递数据。显然，内核必须建立允许各个进程共享该内存区的内存映射关系，然后一直管理该内存区（处理页面故障等）。” 一般的IPC是这个样子1，服务器通过read从输入文件读，read是进入内">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://ww2.sinaimg.cn/large/9d13bd87gw1f03m2wuse5j20uj0bdtac.jpg">
+<meta property="og:image" content="http://ww4.sinaimg.cn/large/9d13bd87gw1f03m3sp4nlj20z90ebgnj.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/9d13bd87gw1f10hcz4vysj20mr0sl0vu.jpg">
+<meta property="article:published_time" content="2016-02-16T12:30:32.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.101Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="IPC">
+<meta property="article:tag" content="SharedMemory">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://ww2.sinaimg.cn/large/9d13bd87gw1f03m2wuse5j20uj0bdtac.jpg">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2016/02/16/mqueue6/" title="消息队列与共享内存(六)：System V共享内存" itemprop="url">消息队列与共享内存(六)：System V共享内存</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2016-02-16T12:30:32.000Z" itemprop="datePublished"> 发表于 2016-02-16</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#System-V%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%E7%9A%84api"><span class="toc-number">1.</span> <span class="toc-text">System V共享内存的api</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-number">1.1.</span> <span class="toc-text">数据结构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-shmget-key-t-key-size-t-size-int-oflag"><span class="toc-number">1.2.</span> <span class="toc-text">int shmget(key_t key, size_t size, int oflag)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#void-shmat-int-shmid-const-void-shmaddr-int-flag"><span class="toc-number">1.3.</span> <span class="toc-text">void* shmat(int shmid, const void* shmaddr, int flag)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-shmdt-const-void-shmaddr"><span class="toc-number">1.4.</span> <span class="toc-text">int shmdt(const void* shmaddr)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-shmctl-int-shmid-int-cmd-struct-shmid-ds-buff"><span class="toc-number">1.5.</span> <span class="toc-text">int shmctl(int shmid, int cmd, struct shmid_ds* buff)</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E4%BA%92%E6%96%A5%E9%94%81%E5%90%8C%E6%AD%A5"><span class="toc-number">2.</span> <span class="toc-text">使用互斥锁同步</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%E7%9A%84%E6%89%A9%E5%AE%B9%E5%92%8C%E7%BC%A9%E5%AE%B9%E9%97%AE%E9%A2%98"><span class="toc-number">3.</span> <span class="toc-text">共享内存的扩容和缩容问题</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%83%B3%E6%B3%95%EF%BC%9A"><span class="toc-number">3.1.</span> <span class="toc-text">想法：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%A6%E5%A4%96%E4%B8%80%E4%B8%AA%E5%81%8F%E7%A7%BB%E9%87%8F%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">4.</span> <span class="toc-text">另外一个偏移量的问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E3%80%8A%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97%E4%B8%8E%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%E3%80%8B%E7%B3%BB%E5%88%97%E6%96%87%E7%AB%A0%E6%80%BB%E7%BB%93%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">《消息队列与共享内存》系列文章总结：</span></a></li></ol>
+		
+		</div>
+		
+		<p><a target="_blank" rel="noopener" href="http://book.douban.com/subject/4118577/">《UNPv2》</a>当中说了“共享内存是可用IPC形式当中最快的。一旦这样的内存区映射到共享它的进程的地址空间，这些进程间数据的传递就不再涉及内核。这里说的不涉及内核的含义是：进程不再通过执行任何进入内核的系统调用来彼此传递数据。显然，内核必须建立允许各个进程共享该内存区的内存映射关系，然后一直管理该内存区（处理页面故障等）。”</p>
+<p>一般的IPC是这个样子<br>1，服务器通过<code>read</code>从输入文件读，<code>read</code>是进入内核的系统调用，它的作用就是先让内核将输入文件的数据读入到内核的内存空间，然后从内核的内存空间复制到服务器进程。<br>2，服务器通过IPC的系统调用将数据放入到IPC当中去。这些IPC的系统调用将数据从进程复制到内核当中。<br>3，客户端通过IPC的系统调用从IPC当中取出数据，那么系统调用又把数据从内核复制到进程<br>4，最后通过<code>write</code>输出文件，当然，<code>write</code>和<code>read</code>一样，也是进入内核的系统调用，也要经过内核。<br><img src="http://ww2.sinaimg.cn/large/9d13bd87gw1f03m2wuse5j20uj0bdtac.jpg" alt="一般的IPC"></p>
+<p>而共享内存则是：<br><img src="http://ww4.sinaimg.cn/large/9d13bd87gw1f03m3sp4nlj20z90ebgnj.jpg" alt="共享内存"><br>可以看到上述的IPC的第2步和第3步的数据从进程到内核的复制过程都被省略了。因为数据从内核到进程的复制过程往往开销很大，所以共享内存的速度是IPC当中最快的。</p>
+<h2 id="System-V共享内存的api"><a href="#System-V共享内存的api" class="headerlink" title="System V共享内存的api"></a>System V共享内存的api</h2><h3 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h3><p>对于每一个共享内存区，内核维护如下的结构：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">struct shmid_ds &#123;</span><br><span class="line">  struct ipc_perm shm_perm;    /* 允许操作的数据结构 */</span><br><span class="line">  size_t shm_segsz;            /* 共享内存的大小 */</span><br><span class="line">  pid_t shm_lpid;              /* 最后操作共享内存的进程id */</span><br><span class="line">  pid_t shm_cpid;              /* 创建共享内存的进程id */</span><br><span class="line">  shmatt_t shm_nattch;         /* 当前附接 */</span><br><span class="line">  shmat_t  shm_cnattch;        /* 内核附接 */</span><br><span class="line">  time_t shm_atime;            /* 上次附接的时间 */</span><br><span class="line">  time_t shm_dtime;            /* 上次断接的时间 */</span><br><span class="line">  time_t shm_ctime;            /* 这个结构上次改变的时间  */</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="int-shmget-key-t-key-size-t-size-int-oflag"><a href="#int-shmget-key-t-key-size-t-size-int-oflag" class="headerlink" title="int shmget(key_t key, size_t size, int oflag)"></a>int shmget(key_t key, size_t size, int oflag)</h3><p>根据<code>key_t</code>的值来创建一个共享内存区，返回一个整数标识符，就标识了这个内存区。size以字节为单位指定内存区的大小：如果实际操作是访问一个已经存在的内存区，那么size应该为0。如果实际操作是访问一个新的共享内存区时，必须指定一个不为0的size值，创建一个新的共享内存区，该内存区被初始化为size字节的0。oflag和消息队列的oflag的意思是一样的，也是读写权限值的组合。</p>
+<h3 id="void-shmat-int-shmid-const-void-shmaddr-int-flag"><a href="#void-shmat-int-shmid-const-void-shmaddr-int-flag" class="headerlink" title="void* shmat(int shmid, const void* shmaddr, int flag)"></a>void* shmat(int shmid, const void* shmaddr, int flag)</h3><p><code>shmget</code>只是打开一个内存区，<code>shmat</code>提供了访问这个内存区的手段。<br><code>shmat</code>的返回值是所指定的共享内存区在调用进程内的起始地址，至于确定这个地址的规则我觉得只需要记住这么一条：</p>
+<blockquote>
+<p>如果shmaddr是一个空指针，那么系统替调用者选择地址。这是推荐的（也是可移植性最好的）方法。</p>
+</blockquote>
+<h3 id="int-shmdt-const-void-shmaddr"><a href="#int-shmdt-const-void-shmaddr" class="headerlink" title="int shmdt(const void* shmaddr)"></a>int shmdt(const void* shmaddr)</h3><p>当一个进程完成某个共享内存区的使用时，它可以调用<code>shmdt</code>断接这个内存区，但是并不是删除这个内存区。</p>
+<h3 id="int-shmctl-int-shmid-int-cmd-struct-shmid-ds-buff"><a href="#int-shmctl-int-shmid-int-cmd-struct-shmid-ds-buff" class="headerlink" title="int shmctl(int shmid, int cmd, struct shmid_ds* buff)"></a>int shmctl(int shmid, int cmd, struct shmid_ds* buff)</h3><p>设定cmd参数为<code>IPC_RMID</code>，就是从系统当中删除这个共享内存。<br>设定cmd参数为<code>IPC_STAT</code>，就是返回指定共享内存区当前的shmid_ds结构，返回给buff。通过buff.shm_segsz就得到内存区的长度，避免越界。</p>
+<h2 id="使用互斥锁同步"><a href="#使用互斥锁同步" class="headerlink" title="使用互斥锁同步"></a>使用互斥锁同步</h2><p><a target="_blank" rel="noopener" href="http://book.douban.com/subject/4118577/">《UNPv2》</a>当中提供了互斥锁的系统调用，但是这里我想使用C++11的mutex来做。</p>
+<blockquote>
+<p>同步当中的生产者—消费者问题，也叫做有界缓冲区问题。一个或者多个生产者（进程或线程）创建着一个个的数据条目，然后这些条目由一个或多个消费者（进程或线程）处理。System V消息队列是隐式同步的，意思就是说生产者和消费者感觉不到内核在执行同步：当生产者超前于消费者，内核就在生产者write之前把它投入到睡眠，直到消费者消费。如果消费者超前于生产者，内核就在消费者调用read之前把它投入睡眠，直到有生产者生产。</p>
+</blockquote>
+<p>共享内存区是必须使用显式的同步</p>
+<h2 id="共享内存的扩容和缩容问题"><a href="#共享内存的扩容和缩容问题" class="headerlink" title="共享内存的扩容和缩容问题"></a>共享内存的扩容和缩容问题</h2><p>因为在System V的系统调用当中，<code>shmget</code>一旦调用，那么生成的共享内存区的大小就固定了。但是扩容和缩容的实现并不需要一定使用系统调用，可以使用内存池的思想：先使用<code>shmget</code>分配出一大块固定大小的内存，然后使用者从大内存当中取出小内存。</p>
+<p>这就是我的代码需要做的事情（简单地封装一下根本没有学习的意义）。</p>
+<h3 id="想法："><a href="#想法：" class="headerlink" title="想法："></a>想法：</h3><p>共享内存的扩容和缩容就是操作内存的trick，说到底就是如何高效地管理内存。这个问题我在读大学的时候研究过，想法是这样的：<br>1，在内存的头部分出一块内存，我把它命名为<code>Head_t</code>，这块头部内存区域保存着管理的信息如下：</p>
+<ul>
+<li>内存的总size</li>
+<li>单次分配内存的最小size</li>
+<li>单次分配内存的最大size</li>
+<li>block的size</li>
+<li>已经分出去的子内存数量</li>
+<li>当前可用的偏移量</li>
+<li>回收的碎片空间的总size，可以二次使用</li>
+</ul>
+<p>2，然后每次分配内存的时候都是按照block为单位来分配，没有达到block整数倍的内存空间就向上取整，让它达到block的内存空间的整数倍。</p>
+<p>3，分配内存容易，释放内存需要一点算法。我的算法是这样的 ：<br>  首先，在<code>Head_t</code>当中建立起一个数组，名字取名为<code>szFreeList</code>。这个数组的下标值就是block的数量，而对应的数组的值就是偏移量。我举个例子：比如说我的block的size是32。然后我需要3个block大小的内存来存放我的数据，那么<code>szFreeList</code>这个数组的下标就是3，等到内存分配完毕，我是通过小内存对于总内存的偏移量来获取到小内存的头指针的，所以要能找到小内存，必须拿到偏移量。<br>  好了，现在回到释放内存的问题上面。比如说我要释放这个内存，那么我就只需要把偏移量放入到<code>szFreeList</code>数组当中就可以了。这就变成了一个碎片空间，当下次还有需要3个block大小的内存空间需要分配的时候，首先查看<code>szFreeList[3]</code>，如果它有值的话，那么就直接取到这个偏移量，根据这个偏移量来拿到小内存的指针，就算小内存当中还有以前的信息也没关系，反正把这块内存分配出去了就是要让新数据覆盖掉它的。<br>  好了，现在的确解决了问题的一半。为什么说一半呢？因为还有一点需要考虑，比如说我现在分配的2块内存，A内存和B内存。2块内存都是3个block的size大小。分配的时候没问题，直接分配就好了，但是释放的时候，如果2块内存都释放了，但是<code>szFreeList[3]</code>只能有一个值，那么该怎么办？<br>  解决剩下的这半个问题，我的方法是：在每一个分配的内存当中加入一个<code>next</code>，也就是说在A内存当中的头部，加入一个<code>uint64_t</code>类型的<code>next</code>类型的值，保存B内存的偏移量，在B内存当中的头部，也同样加入一个<code>uint64_t</code>类型的<code>next</code>类型的值，保存0。<br>  好，现在看这样的场景，我要释放A内存和B内存，这个时候<code>szFreeList[3]</code>当中保存的是0。假设先释放的是A内存，那么步骤是这样的：先将<code>szFreeList[3]</code>当中的值赋值给A内存的<code>next</code>，此时是0，再将A内存的偏移量放入<code>szFreeList[3]</code>当中去，然后释放B内存的时候也是：现将<code>szFreeList[3]</code>当中的值赋值给B内存的<code>next</code>，此时是A内存的偏移量，然后再将B内存的偏移量放入<code>szFreeList[3]</code>当中去。那么通过了这个<code>next</code>就把两个偏移量连接了起来。<br>  如果现在要分配3个block的内存，就直接查找<code>szFreeList[3]</code>，得到B内存的偏移量，通过偏移量找到B内存，取出B内存的<code>next</code>，也就是A内存的地址，再放入<code>szFreeList[3]</code>当中。</p>
+<p><img src="http://ww3.sinaimg.cn/large/9d13bd87gw1f10hcz4vysj20mr0sl0vu.jpg" alt="共享内存的结构"></p>
+<p>我在<code>Head_t</code>当中写入<code>szFreeList[0]</code>的目的是为了方便数组越界处理。</p>
+<h2 id="另外一个偏移量的问题"><a href="#另外一个偏移量的问题" class="headerlink" title="另外一个偏移量的问题"></a>另外一个偏移量的问题</h2><p>我们知道，共享内存是用于进程间通信。比如进程A开辟了一块共享内存，直接在头部当中写入信息，然后进程B访问这个共享内存，从头部开始读数据，那么就能够获取到进程A写入到共享内存区当中的数据了。<br>但是，如果进程A不在头部写入呢，比如说在经过了一个offset之后再写入。那么除非B知道这个offset的值，否则无法读取。那么B如何得知这个offset呢，当然还是进程A通过进程间通信的方式把offset告诉进程B啦，那么选用何种进程间的通信方式呢？FIFO，消息队列，共享内存？当然还是用共享内存啦。<br>这就意味着需要2个共享内存。一个是作为存储信息的主内存。另外一个是作为管理offset的管理内存。</p>
+<p>我把头文件的代码贴上来：</p>
+<p>主内存的代码设计如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br></pre></td><td class="code"><pre><span class="line">class ShmAllocator &#123;</span><br><span class="line"> public:</span><br><span class="line">  /*</span><br><span class="line">   * 当server为true的时候，执行的是创建一个共享内存区</span><br><span class="line">   * 当server为false的时候，执行的是获取已经存在的共享内存区</span><br><span class="line">   */</span><br><span class="line">  explicit ShmAllocator(bool server);</span><br><span class="line">  explicit ShmAllocator(string shmFile, uint64_t shmSize, bool server);</span><br><span class="line">  ShmAllocator(const ShmAllocator&amp;) = delete;</span><br><span class="line">  ShmAllocator&amp; operator=(const ShmAllocator&amp;) = delete;</span><br><span class="line">  virtual ~ShmAllocator();</span><br><span class="line">  void Dump() const;</span><br><span class="line"></span><br><span class="line">  int GetShmID() const;</span><br><span class="line"></span><br><span class="line">  string GetShmFile() const;</span><br><span class="line"></span><br><span class="line">  uint64_t GetShmSize() const;</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * 获取到的是最顶部的地址，要想从内存池当中分配内存，就使用Allocate函数</span><br><span class="line">   */</span><br><span class="line">  void* GetShmAddr() const;</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * 获取剩余的大块内存空间</span><br><span class="line">   */</span><br><span class="line">  uint64_t GetFreeSize() const;</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * 获取全部剩余空间：大块内存空间加上所有碎片空间</span><br><span class="line">   */</span><br><span class="line">  uint64_t GetTotalFreeSize() const;</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * 如果是创建一个不存在的共享内存区，那么调用Attach()之后要使用InitPHead来初始化pHead</span><br><span class="line">   * 如果仅仅只是访问已经存在的内存区，就不要乱动InitPHead</span><br><span class="line">   */</span><br><span class="line">  void Attach();</span><br><span class="line"></span><br><span class="line">  void InitPHead();</span><br><span class="line"></span><br><span class="line">  void Detach();</span><br><span class="line"></span><br><span class="line">  // 关键函数：从内存池当中取出size大小的内存, 通过引用的形式将偏移量返回</span><br><span class="line">  void* Allocate(uint64_t size, uint64_t&amp; offset);</span><br><span class="line">  // 关键函数：将ptr指向的内存释放会内存池当中，通过引用的形式将偏移量返回</span><br><span class="line">  bool Deallocate(void *ptr, uint64_t&amp; offset);</span><br><span class="line"></span><br><span class="line">  //关键函数：通过offset来获取到对应的内存块的地址</span><br><span class="line">  void* GetMemByOffset(uint64_t offset);</span><br><span class="line"></span><br><span class="line">  // 给共享内存上锁</span><br><span class="line">  bool Lock();</span><br><span class="line">  bool Unlock();</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  //enum hack</span><br><span class="line">  enum &#123; BLOCK_SIZE = 32 &#125;;                    // 对齐的SIZE, 这里不能小于sizeof(uint64_t),否则InitPHead()的时候currentOffset将会越出MAX_BYTES</span><br><span class="line">  enum &#123; MAX_BYTES = 4 * 1024 * 1024 &#125;;       // 最大分配的SIZE</span><br><span class="line">  enum &#123; MIN_BYTES = 8 &#125;;                     // 最小分配的SIZE，设置的时候不能小于BLOCK_SIZE</span><br><span class="line">  enum &#123; READY_FLAG = 1 &#125;;                    // 是否已经准备好的标志值, 其实这里可以直接使用1和0</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  // 在共享内存当中的head，存储了共享内存的信息</span><br><span class="line">  typedef struct &#123;</span><br><span class="line">	uint64_t mutex;                         // 共享内存上锁，0为被锁住了，1为处于解锁状态</span><br><span class="line">    uint64_t memorySize;                    // 共享内存SIZE</span><br><span class="line">    uint64_t minBytes;                      // 单次分配最小SIZE</span><br><span class="line">    uint64_t maxBytes;                      // 单次分配最大SIZE</span><br><span class="line">    uint64_t blockSize;                     // 对齐SIZE，每次分配内存空间就是它的整数倍</span><br><span class="line">    uint64_t memoryCount;                   // 已经分配出去的内存数量</span><br><span class="line">    uint64_t currentOffset;                 // 当前可分配的地址偏移量, shmAddr_ + currentOffset就是当前可用的地址</span><br><span class="line">    uint64_t managedSize;                   // 管理中的碎片空间</span><br><span class="line">    int iReady;                             // 是否已经准备好</span><br><span class="line">    uint64_t szFreeList[0];                 // 管理各个大小的空闲Buffer列表,之所以把它写在Head_t当中是为了利用它来进行数组越界</span><br><span class="line">  &#125; Head_t;</span><br><span class="line"></span><br><span class="line">  // 每次调用Allocate从内存池当中取出内存的时候，这个数据结构就表明了分配的内存大小以及下一个可用内存的偏移量</span><br><span class="line">  typedef struct &#123;</span><br><span class="line">    uint64_t size;</span><br><span class="line">    uint64_t next;</span><br><span class="line">  &#125; Pointer_t;</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  // 将size向上取整，就是取到blockSize的最小整数倍</span><br><span class="line">  uint64_t RoundUp(uint64_t size) const;</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  int shmid_;</span><br><span class="line"></span><br><span class="line">  //用于ftok的shmFile_</span><br><span class="line">  string shmFile_;</span><br><span class="line"></span><br><span class="line">  void* shmAddr_;   // 使用shmat获取到的值</span><br><span class="line">  uint64_t shmSize_;  // 初始化共享内存的时候指定的大小</span><br><span class="line"></span><br><span class="line">  Head_t* pHead;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>有关管理内存的设计，我的前期设计就是头部保存节点的数量，节点的数据结构就是非常简单的数组，但是这样一来遍历所有的节点很耗时，我后期打算将它改为红黑树。</p>
+<p>管理内存的代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line">class ManagerMem &#123;</span><br><span class="line"> public:</span><br><span class="line"> /*</span><br><span class="line">  * 当server为true的时候，执行的是创建一个共享内存区</span><br><span class="line">  * 当server为false的时候，执行的是获取已经存在的共享内存区</span><br><span class="line">  */</span><br><span class="line">  explicit ManagerMem(bool server);</span><br><span class="line">  explicit ManagerMem(string shmFile, uint64_t shmSize, bool server);</span><br><span class="line">  ManagerMem(const ManagerMem&amp;) = delete;</span><br><span class="line">  ManagerMem&amp; operator=(const ManagerMem&amp;) = delete;</span><br><span class="line">  virtual ~ManagerMem();</span><br><span class="line">  void Dump() const;</span><br><span class="line"></span><br><span class="line"> public:</span><br><span class="line">  void Attach();</span><br><span class="line"></span><br><span class="line">  void InitPHead();</span><br><span class="line"></span><br><span class="line">  void Detach();</span><br><span class="line"></span><br><span class="line">  /*</span><br><span class="line">   * 获取到的是最顶部的地址</span><br><span class="line">   */</span><br><span class="line">  void* GetShmAddr() const;</span><br><span class="line"></span><br><span class="line">  bool AddIdOffsetMapping(uint64_t id, uint64_t offset);</span><br><span class="line">  /*</span><br><span class="line">   * 返回id对应的第一个offset</span><br><span class="line">   */</span><br><span class="line">  uint64_t GetOffsetById(uint64_t id);</span><br><span class="line"></span><br><span class="line">  bool EraseOffset(uint64_t offset);</span><br><span class="line"></span><br><span class="line">  // 给共享内存上锁</span><br><span class="line">  bool Lock();</span><br><span class="line">  bool Unlock();</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  enum &#123; MANAGER_MEM_BYTES = 4 * 1024 * 1024 &#125;;                    // 管理内存的总长度</span><br><span class="line"></span><br><span class="line">  typedef struct &#123;</span><br><span class="line">	uint64_t overwriteFlag;         // 这个标记为0的时候，表示这个节点已经无效，应该被覆盖掉。标记为1的时候有效</span><br><span class="line"> 	uint64_t id;                    // protobuf当中的id</span><br><span class="line"> 	uint64_t offset;                // 对应的offset</span><br><span class="line">   &#125; Map_t;                        // 这就是在管理内存当中存储的节点，管理内存的ManagerMemHead_t之后，这些节点是按照普通的链表来排序</span><br><span class="line">                                   // 要想遍历这些节点效率较低，我正在思考如何使用红黑树的数据结构来存储节点</span><br><span class="line">  typedef struct &#123;</span><br><span class="line">    uint64_t mutex;               // 共享内存上锁，0为被锁住了，1为处于解锁状态</span><br><span class="line">    uint64_t memorySize;          // 管理内存的SIZE</span><br><span class="line">    uint64_t nodeNum;             // Map_t类型节点的数量</span><br><span class="line">    Map_t nodeList[0];            // 利用它来执行数组越界</span><br><span class="line">  &#125; ManagerMemHead_t;</span><br><span class="line"></span><br><span class="line"> private:</span><br><span class="line">  int shmid_;</span><br><span class="line"></span><br><span class="line">  //用于ftok的shmFile_</span><br><span class="line">  string shmFile_;</span><br><span class="line"></span><br><span class="line">  void* shmAddr_;     // 使用shmat获取到的值</span><br><span class="line">  uint64_t shmSize_;  // 初始化共享内存的时候指定的大小</span><br><span class="line"></span><br><span class="line">  ManagerMemHead_t* pHead;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>实现文件的代码请参见：<a target="_blank" rel="noopener" href="https://github.com/adairjun/MQueue/blob/master/util/shm_allocator.cpp">https://github.com/adairjun/MQueue/blob/master/util/shm_allocator.cpp</a></p>
+<p>测试文件<a target="_blank" rel="noopener" href="https://github.com/adairjun/MQueue/blob/master/gtest/shm_server.cpp">shm_server.cpp</a>和<a target="_blank" rel="noopener" href="https://github.com/adairjun/MQueue/blob/master/gtest/shm_server.cpp">shm_client.cpp</a>，先启动<code>shm_server</code>，再启动<code>shm_client</code>。</p>
+<h2 id="《消息队列与共享内存》系列文章总结："><a href="#《消息队列与共享内存》系列文章总结：" class="headerlink" title="《消息队列与共享内存》系列文章总结："></a>《消息队列与共享内存》系列文章总结：</h2><p>我的上个系列的文章<a href="http://xiongjun.info/categories/SocketPoll/">《socket连接池SocketPool分析》系列</a> 算是对<a target="_blank" rel="noopener" href="http://book.douban.com/subject/1500149/">《UNPv1》</a>的复习，<a href="http://xiongjun.info/categories/MessageQueue/">这个系列的文章</a> 就是对<a target="_blank" rel="noopener" href="http://book.douban.com/subject/4118577/">UNPv2</a>的复习。在博文视点的传世经典书丛的出版说明当中有这样一句话：孔子云：“取乎其上，得乎其中；取乎其中，得乎其下；取乎其下，则无所得矣。” Richard Stevens 大神何其高明，他的书当然是上上之选，但是我学习期间所写的博客也难免有疏漏之处。这两本书应该放在我的案头，时时刻刻准备重读。</p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/MessageQueue/">MessageQueue</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/IPC/">IPC</a><a href="/tags/SharedMemory/">SharedMemory</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2016/02/16/mqueue6/" data-title="消息队列与共享内存(六)：System V共享内存 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2016/12/20/gitlab/" title="gitlab部署手册">
+  <strong>上一篇：</strong><br/>
+  <span>
+  gitlab部署手册</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2016/02/16/mqueue5/"  title="消息队列与共享内存(五)：企业应用级的消息队列">
+ <strong>下一篇：</strong><br/> 
+ <span>消息队列与共享内存(五)：企业应用级的消息队列
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#System-V%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%E7%9A%84api"><span class="toc-number">1.</span> <span class="toc-text">System V共享内存的api</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-number">1.1.</span> <span class="toc-text">数据结构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-shmget-key-t-key-size-t-size-int-oflag"><span class="toc-number">1.2.</span> <span class="toc-text">int shmget(key_t key, size_t size, int oflag)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#void-shmat-int-shmid-const-void-shmaddr-int-flag"><span class="toc-number">1.3.</span> <span class="toc-text">void* shmat(int shmid, const void* shmaddr, int flag)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-shmdt-const-void-shmaddr"><span class="toc-number">1.4.</span> <span class="toc-text">int shmdt(const void* shmaddr)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-shmctl-int-shmid-int-cmd-struct-shmid-ds-buff"><span class="toc-number">1.5.</span> <span class="toc-text">int shmctl(int shmid, int cmd, struct shmid_ds* buff)</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E4%BA%92%E6%96%A5%E9%94%81%E5%90%8C%E6%AD%A5"><span class="toc-number">2.</span> <span class="toc-text">使用互斥锁同步</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%E7%9A%84%E6%89%A9%E5%AE%B9%E5%92%8C%E7%BC%A9%E5%AE%B9%E9%97%AE%E9%A2%98"><span class="toc-number">3.</span> <span class="toc-text">共享内存的扩容和缩容问题</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%83%B3%E6%B3%95%EF%BC%9A"><span class="toc-number">3.1.</span> <span class="toc-text">想法：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%A6%E5%A4%96%E4%B8%80%E4%B8%AA%E5%81%8F%E7%A7%BB%E9%87%8F%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">4.</span> <span class="toc-text">另外一个偏移量的问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E3%80%8A%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97%E4%B8%8E%E5%85%B1%E4%BA%AB%E5%86%85%E5%AD%98%E3%80%8B%E7%B3%BB%E5%88%97%E6%96%87%E7%AB%A0%E6%80%BB%E7%BB%93%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">《消息队列与共享内存》系列文章总结：</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

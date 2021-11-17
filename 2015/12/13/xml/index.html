@@ -1,0 +1,730 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>使用boost::property_tree解析xml与json (一):概述 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="最近我正在开始研究消息队列，MQueue，今天在阅读我以前的代码DBPool 和 SocketPool的时候，看到我以前在DBPool 和 SocketPool的池的构造函数当中使用boost的property_tree来解析xml和json的代码非常冗长，今天花了一天的时间把解析xml和json的接口实现了，名字为parse_xml.cpp和parse_json.cpp，放到MQueue里面了，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用boost::property_tree解析xml与json (一):概述">
+<meta property="og:url" content="http://xiongjun.info/2015/12/13/xml/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="最近我正在开始研究消息队列，MQueue，今天在阅读我以前的代码DBPool 和 SocketPool的时候，看到我以前在DBPool 和 SocketPool的池的构造函数当中使用boost的property_tree来解析xml和json的代码非常冗长，今天花了一天的时间把解析xml和json的接口实现了，名字为parse_xml.cpp和parse_json.cpp，放到MQueue里面了，">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-12-12T17:02:03.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.093Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="boost">
+<meta property="article:tag" content="property_tree">
+<meta property="article:tag" content="json">
+<meta property="article:tag" content="xml">
+<meta property="article:tag" content="rapidxml">
+<meta property="article:tag" content="rapidjson">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/13/xml/" title="使用boost::property_tree解析xml与json (一):概述" itemprop="url">使用boost::property_tree解析xml与json (一):概述</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-12T17:02:03.000Z" itemprop="datePublished"> 发表于 2015-12-13</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#boost-property-tree"><span class="toc-number">1.</span> <span class="toc-text">boost::property_tree</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E6%9E%90xml%E7%9A%84%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.</span> <span class="toc-text">解析xml的接口</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#boost-property-tree-read-xml"><span class="toc-number">2.1.</span> <span class="toc-text">boost::property_tree::read_xml</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#get"><span class="toc-number">2.2.</span> <span class="toc-text">get</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#get-child"><span class="toc-number">2.3.</span> <span class="toc-text">get_child</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#attribute"><span class="toc-number">2.4.</span> <span class="toc-text">attribute</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#boost-property-tree-write-xml"><span class="toc-number">2.5.</span> <span class="toc-text">boost::property_tree::write_xml</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#put"><span class="toc-number">2.6.</span> <span class="toc-text">put</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#add-child"><span class="toc-number">2.7.</span> <span class="toc-text">add_child</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#attribute-1"><span class="toc-number">2.8.</span> <span class="toc-text">attribute</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E6%9E%90json%E6%8E%A5%E5%8F%A3"><span class="toc-number">3.</span> <span class="toc-text">解析json接口</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#get%E6%95%B0%E7%BB%84"><span class="toc-number">3.1.</span> <span class="toc-text">get数组</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#put%E6%95%B0%E7%BB%84"><span class="toc-number">3.2.</span> <span class="toc-text">put数组</span></a></li></ol></li></ol>
+		
+		</div>
+		
+		<p>最近我正在开始研究消息队列，<a target="_blank" rel="noopener" href="https://github.com/adairjun/MQueue">MQueue</a>，今天在阅读我以前的代码<a target="_blank" rel="noopener" href="https://github.com/adairjun/DBPool">DBPool</a> 和 <a target="_blank" rel="noopener" href="https://github.com/adairjun/SocketPool">SocketPool</a>的时候，看到我以前在<a target="_blank" rel="noopener" href="https://github.com/adairjun/DBPool">DBPool</a> 和 <a target="_blank" rel="noopener" href="https://github.com/adairjun/SocketPool">SocketPool</a>的池的构造函数当中使用<code>boost</code>的<code>property_tree</code>来解析<code>xml</code>和<code>json</code>的代码非常冗长，今天花了一天的时间把解析xml和json的接口实现了，名字为<code>parse_xml.cpp</code>和<code>parse_json.cpp</code>，放到<a target="_blank" rel="noopener" href="https://github.com/adairjun/MQueue/tree/master/util">MQueue</a>里面了，并同步更新到了<a target="_blank" rel="noopener" href="https://github.com/adairjun/DBPool/tree/master/util">DBPool</a> 和 <a target="_blank" rel="noopener" href="https://github.com/adairjun/SocketPool/tree/master/util">SocketPool</a>。</p>
+<p>老规矩，还是先讲解一下<code>boost</code>的<code>property_tree</code>。我看的是<a target="_blank" rel="noopener" href="http://book.douban.com/subject/5276434/">《Boost程序库完全开发指南 深入准标准库》</a>。</p>
+<h2 id="boost-property-tree"><a href="#boost-property-tree" class="headerlink" title="boost::property_tree"></a>boost::property_tree</h2><p><code>property_tree</code>是一个保存了多个属性值的树形数据结构，可以使用类似路径的简单方式访问任意节点的属性，而且每个节点都可以用类似STL的风格遍历子节点。<code>property_tree</code>可以处理<code>xml</code>,<code>json</code>,<code>ini</code>,<code>info</code>四种格式的文本数据。</p>
+<p>使用<code>property_tree</code>之前要包含头文件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;boost/property_tree/ptree.hpp&gt;</span><br></pre></td></tr></table></figure>
+
+<h2 id="解析xml的接口"><a href="#解析xml的接口" class="headerlink" title="解析xml的接口"></a>解析xml的接口</h2><p><code>property_tree</code>本身并没有实现<code>xml</code>解析器，使用的是<a target="_blank" rel="noopener" href="http://rapidxml.sourceforge.net/">rapidxml</a>这个开源项目，它比市面上能够找到的大部分<code>xml</code>解析器都要快。这个<a target="_blank" rel="noopener" href="http://rapidxml.sourceforge.net/">rapidxml</a>非常有名，以至于<a target="_blank" rel="noopener" href="http://rapidjson.org/">rapidjson</a> 这个开源<code>json</code>解析库连名字也是借鉴它的，但是<code>boost</code>并没有整合<a target="_blank" rel="noopener" href="http://rapidjson.org/">rapidjson</a>。但是我还是非常推荐<a target="_blank" rel="noopener" href="http://rapidjson.org/">rapidjson</a>的，毕竟是<a target="_blank" rel="noopener" href="https://github.com/miloyip/rapidjson">miloyip</a>的作品。</p>
+<p>在解析<code>xml</code>之前需要包含头文件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;boost/property_tree/xml_parser.hpp&gt;</span><br></pre></td></tr></table></figure>
+
+<h3 id="boost-property-tree-read-xml"><a href="#boost-property-tree-read-xml" class="headerlink" title="boost::property_tree::read_xml"></a>boost::property_tree::read_xml</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">template&lt;typename Ptree&gt; </span><br><span class="line">  void read_xml(std::basic_istream&lt; typename Ptree::key_type::value_type &gt; &amp; stream, </span><br><span class="line">                Ptree &amp; pt, int flags = 0);</span><br></pre></td></tr></table></figure>
+
+<p>这个接口的使用方法是这样:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sting configPath_ = &quot;../config/config.xml&quot;;</span><br><span class="line">boost::property_tree::ptree pt;</span><br><span class="line">boost::property_tree::read_xml(configPath_, pt);</span><br></pre></td></tr></table></figure>
+<p>然后就把<code>../config/config.xml</code>的这个路径下的<code>config.xml</code>读入到了<code>pt</code>这个数据结构当中了。</p>
+<h3 id="get"><a href="#get" class="headerlink" title="get"></a>get</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">  &lt;child&gt;</span><br><span class="line">   &lt;a&gt;“1”&lt;/a&gt;</span><br><span class="line">   &lt;b&gt;2&lt;/b&gt;</span><br><span class="line"> &lt;/child&gt;</span><br><span class="line">&lt;/root&gt;</span><br></pre></td></tr></table></figure>
+<p>直接使用<code>get</code>即可获取<code>xml</code>的标签值，比如</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">pt.get&lt;string&gt;(&quot;root.child.a&quot;);</span><br><span class="line">pt.get&lt;int&gt;(&quot;root.child.b&quot;);</span><br></pre></td></tr></table></figure>
+<p><code>property</code>使用点号<code>.</code>来作为路径分隔符号。<code>root.child.a</code>就是获取<code>root</code>标签下<code>child</code>标签的<code>a</code>标签的值。<br><code>string</code>是指定将获取的值的类型。</p>
+<h3 id="get-child"><a href="#get-child" class="headerlink" title="get_child"></a>get_child</h3><p><code>get_child</code>用来获取子节点的对象。<br>比如说在</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">   &lt;child&gt;</span><br><span class="line">    &lt;a&gt;“1”&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;2&lt;/b&gt;</span><br><span class="line">  &lt;/child&gt;</span><br><span class="line"> &lt;/root&gt;</span><br></pre></td></tr></table></figure>
+<p>当中，当我需要遍历<code>child</code>下所有的标签的时候（这在我不知道<code>child</code>标签下有几个子标签的时候经常用），我就不能单纯地使用<code>get</code>了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">auto child = pt_-&gt;get_child(&quot;root.child&quot;);</span><br><span class="line">  for (auto pos = child.begin(); pos!= child.end(); ++pos) &#123;</span><br><span class="line">    cout &lt;&lt; pos-&gt;first &lt;&lt; &quot;---&quot; &lt;&lt; pos-&gt;second.data();</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p><code>child.begin()</code>得到的是<code>boost::property_tree::ptree::iterator</code>类型的对象，是个迭代器。<br>注意节点的数据结构是一个<code>pair</code>,<code>pair</code>的<code>first</code>是节点的标签名，<code>second</code>是节点自身。那么对<code>root.child</code>进行遍历就得到了<code>child</code>的子节点，子节点的<code>first</code>是标签名，在这里也就是<code>a</code>和<code>b</code>，<code>second</code>是子节点自身，对<code>second</code>调用<code>data()</code>方法就能访问值。</p>
+<h3 id="attribute"><a href="#attribute" class="headerlink" title="attribute"></a>attribute</h3><p><code>xml</code>和<code>json</code>有个最大的不同点，就是<code>xml</code>有<code>attribute</code>,而<code>json</code>有数组的概念。所以<code>parse_xml.cpp</code>和<code>parse_json.cpp</code>对外接口并不一样。</p>
+<p><code>property_tree</code>将所有的<code>xml</code>节点转换为属性树对应的节点，每一个节点的类型都是<code>value_type</code>。节点的<code>attribute</code>保存在改节点的<code>&lt;xmlattr&gt;</code>下级节点，注释保存在<code>&lt;xmlcomment&gt;</code>下级节点。这样说可能比较难以理解，我们来看个例子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">  &lt;!-- root comment --&gt;</span><br><span class="line">   &lt;child&gt;</span><br><span class="line">    &lt;!-- child comment --&gt;</span><br><span class="line">    &lt;a hello=&quot;style&quot;&gt;“1”&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;2&lt;/b&gt;</span><br><span class="line">  &lt;/child&gt;</span><br><span class="line"> &lt;/root&gt;</span><br></pre></td></tr></table></figure>
+<p>那么</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">read_xml(&quot;conf.xml&quot;, pt);</span><br><span class="line">pt.get&lt;string&gt;(&quot;root.&lt;xmlcomment&gt;&quot;);   //root comment</span><br><span class="line">pt.get&lt;string&gt;(&quot;root.child.&lt;xmlcomment&gt;&quot;);  //child comment</span><br><span class="line">pt.get&lt;string&gt;(&quot;root.child.a.&lt;xmlattr&gt;.hello&quot;);  //style</span><br></pre></td></tr></table></figure>
+<p>请注意<code>root.child.a.&lt;xmlattr&gt;.hello</code>，不是直接使用<code>&lt;xmlattr&gt;</code>就可以了，因为一个标签可以有很多个<code>attribute</code>，所以还是需要指定<code>attribute</code>的名字。</p>
+<h3 id="boost-property-tree-write-xml"><a href="#boost-property-tree-write-xml" class="headerlink" title="boost::property_tree::write_xml"></a>boost::property_tree::write_xml</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">template&lt;typename Ptree&gt; </span><br><span class="line">  void write_xml(std::basic_ostream&lt; typename Ptree::key_type::value_type &gt; &amp; stream, </span><br><span class="line">                 const Ptree &amp; pt, </span><br><span class="line">                 const xml_writer_settings&lt; typename Ptree::key_type::value_type &gt; &amp; settings = xml_writer_settings&lt; typename Ptree::key_type::value_type &gt;());</span><br></pre></td></tr></table></figure>
+
+<p>这个接口的使用方法是这样:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sting configPath_ = &quot;../config/config.xml&quot;;</span><br><span class="line">boost::property_tree::write_xml(configPath_, pt);</span><br></pre></td></tr></table></figure>
+<p>把<code>pt</code>这个数据结构当中的信息写入<code>../config/config.xml</code>当中。可以看到<code>property_tree</code>既可以读取数据，又可以写入数据，它的操作具有对称性。</p>
+<h3 id="put"><a href="#put" class="headerlink" title="put"></a>put</h3><p>和<code>get</code>方法对称的就是<code>put</code>方法。<br>比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line"> &lt;child&gt;</span><br><span class="line">    &lt;a&gt;&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;&lt;/b&gt;</span><br><span class="line"> &lt;/child&gt;</span><br><span class="line">&lt;/root&gt;</span><br></pre></td></tr></table></figure>
+
+<p>调用了<code>pt.put(&quot;key&quot;, &quot;testput&quot;)</code>之后：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">  &lt;child&gt;</span><br><span class="line">    &lt;a&gt;&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;&lt;/b&gt;</span><br><span class="line">  &lt;/child&gt;</span><br><span class="line">&lt;/root&gt;</span><br><span class="line">&lt;key&gt;&quot;testput&quot;&lt;/key&gt;</span><br></pre></td></tr></table></figure>
+<p>用法非常简单，其中<code>key</code>是<code>xml</code>的路径，可以随便替换。</p>
+<h3 id="add-child"><a href="#add-child" class="headerlink" title="add_child"></a>add_child</h3><p>和<code>get_child</code>相对的就是<code>add_child</code>函数了。比如我需要一口气插入很多标签，那么就要用到<code>add_child</code>了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">  &lt;child&gt;</span><br><span class="line">    &lt;a&gt;&quot;1&quot;&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;2&lt;/b&gt;</span><br><span class="line">  &lt;/child&gt;</span><br><span class="line">&lt;/root&gt;</span><br></pre></td></tr></table></figure>
+<p>在执行了</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">read_xml(&quot;config.xml&quot;, pt);</span><br><span class="line">ptree child;</span><br><span class="line">child.put(&quot;a&quot;, &quot;3&quot;);</span><br><span class="line">child.put(&quot;b&quot;, &quot;4&quot;);</span><br><span class="line">pt.add_child(&quot;root.newchild&quot;, child);</span><br><span class="line">write_xml(&quot;config.xml&quot;, pt);</span><br></pre></td></tr></table></figure>
+<p>之后，就变成了：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&lt;root&gt;</span><br><span class="line">  &lt;child&gt;</span><br><span class="line">    &lt;a&gt;&quot;1&quot;&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;2&lt;/b&gt;</span><br><span class="line">  &lt;/child&gt;</span><br><span class="line">  &lt;newchild&gt;</span><br><span class="line">    &lt;a&gt;&quot;3&quot;&lt;/a&gt;</span><br><span class="line">    &lt;b&gt;&quot;4&quot;&lt;/b&gt;</span><br><span class="line">  &lt;/newchild&gt;</span><br><span class="line">&lt;/root&gt; </span><br></pre></td></tr></table></figure>
+
+<h3 id="attribute-1"><a href="#attribute-1" class="headerlink" title="attribute"></a>attribute</h3><p>根据上面说的<code>attribute</code>其实就是下级标签<code>&lt;xmlattr&gt;</code>之后，直接使用<code>put</code>方法就能够把<code>attribute</code>写入<code>xml</code>文本当中去。<br>比如说执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pt.put(&quot;error.&lt;xmlattr&gt;.id&quot; &quot;DB_ERROR_EXECUTE&quot;)</span><br></pre></td></tr></table></figure>
+<p>很简单地就能得到：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&lt;error id=&quot;DB_ERROR_EXECUTE&quot;/&gt;</span><br></pre></td></tr></table></figure>
+
+<h2 id="解析json接口"><a href="#解析json接口" class="headerlink" title="解析json接口"></a>解析json接口</h2><p>上面已经提到过了，<code>json</code>和<code>xml</code>的最大不同就在于<code>json</code>的数组。</p>
+<h3 id="get数组"><a href="#get数组" class="headerlink" title="get数组"></a>get数组</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">&#123; </span><br><span class="line">  &quot;root&quot;:</span><br><span class="line">     &#123;</span><br><span class="line">        &quot;child&quot;:</span><br><span class="line">         [</span><br><span class="line">           &#123; </span><br><span class="line">              &quot;a&quot;: &quot;1&quot;,</span><br><span class="line">               &quot;b&quot;: &quot;2&quot; </span><br><span class="line">           &#125;,</span><br><span class="line">           &#123; </span><br><span class="line">              &quot;a&quot;: &quot;1&quot;,</span><br><span class="line">              &quot;b&quot;: &quot;2&quot; </span><br><span class="line">           &#125;</span><br><span class="line">         ]</span><br><span class="line">     &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到在这个<code>json</code>当中，<code>root.child</code>是一个数组。<br>获取数组当中的值就需要使用<code>value_type</code>类型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">for (ptree::value_type &amp;v : child.get_child(&quot;&quot;)) &#123;</span><br><span class="line">  //v 就是child数组当中的元素</span><br><span class="line">  auto nextchild = v.second.get_child(&quot;&quot;);</span><br><span class="line">  //nextchild 就是元素&quot;a&quot;，“b”的集合</span><br><span class="line">     for (auto pos = nextchild.begin(); pos!= nextchild.end(); ++pos) &#123;</span><br><span class="line">       cout &lt;&lt; pos-&gt;first &lt;&lt; &quot;---&quot; &lt;&lt; pos-&gt;second.data() &lt;&lt; endl;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>要回答这个问题，还是要回到<code>property_tree</code>这个结构当中去，在<code>property_tree</code>的定义式当中，每一个节点的类型都是<code>value_type</code>，它是一个<code>pair</code>，节点的名字就是<code>first</code>，节点自身就是<code>second</code>。那么在这里，<code>child</code>也是一个<code>value_type</code>，它调用<code>get_child(&quot;&quot;)</code>就得到了<code>child</code>这个数组的所有成员，当然都是<code>value_type</code>型的了。</p>
+<h3 id="put数组"><a href="#put数组" class="headerlink" title="put数组"></a>put数组</h3><p>要想put一个数组，就要是用<code>push_back</code>方法。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">ptree temp;</span><br><span class="line">temp.put(&quot;a&quot;, &quot;3&quot;);</span><br><span class="line">temp.put(&quot;b&quot;, &quot;4&quot;);</span><br><span class="line">ptree temp_second;</span><br><span class="line">temp_second.put(&quot;a&quot;, &quot;3&quot;);</span><br><span class="line">temp_second.put(&quot;b&quot;, &quot;4&quot;);</span><br><span class="line"></span><br><span class="line">ptree myTree;</span><br><span class="line">// 构造一个数组就是要用push_back方法</span><br><span class="line">myTree.push_back(make_pair(&quot;&quot;, temp);</span><br><span class="line">myTree.push_back(make_pair(&quot;&quot;, temp_second);</span><br><span class="line"></span><br><span class="line">read_xml(&quot;config.json&quot;, pt);</span><br><span class="line">pt.add_child(&quot;root.newchild&quot;, myTree);</span><br><span class="line">write_xml(&quot;config.json&quot;, pt);</span><br></pre></td></tr></table></figure>
+<p>因为一个节点的数据类型就是<code>value_type</code>类型，<code>value_type</code>类型不是简单的<code>pair</code>，否则的话也不可能调用<code>push_back</code>，它是经过了特殊处理。</p>
+<p>执行结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">&#123; </span><br><span class="line">  &quot;root&quot;:</span><br><span class="line">     &#123;</span><br><span class="line">        &quot;child&quot;:</span><br><span class="line">         [</span><br><span class="line">           &#123; </span><br><span class="line">              &quot;a&quot;: &quot;1&quot;,</span><br><span class="line">               &quot;b&quot;: &quot;2&quot; </span><br><span class="line">           &#125;,</span><br><span class="line">           &#123; </span><br><span class="line">              &quot;a&quot;: &quot;1&quot;,</span><br><span class="line">              &quot;b&quot;: &quot;2&quot; </span><br><span class="line">           &#125;</span><br><span class="line">         ],</span><br><span class="line">        &quot;newchild&quot;:</span><br><span class="line">         [</span><br><span class="line">           &#123; </span><br><span class="line">              &quot;a&quot;: &quot;3&quot;,</span><br><span class="line">               &quot;b&quot;: &quot;4&quot; </span><br><span class="line">           &#125;,</span><br><span class="line">           &#123; </span><br><span class="line">              &quot;a&quot;: &quot;3&quot;,</span><br><span class="line">              &quot;b&quot;: &quot;4&quot; </span><br><span class="line">           &#125;</span><br><span class="line">         ],         </span><br><span class="line">     &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/property-tree/">property_tree</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/boost/">boost</a><a href="/tags/property-tree/">property_tree</a><a href="/tags/json/">json</a><a href="/tags/xml/">xml</a><a href="/tags/rapidxml/">rapidxml</a><a href="/tags/rapidjson/">rapidjson</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/13/xml/" data-title="使用boost::property_tree解析xml与json (一):概述 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/13/xml2/" title="使用boost::property_tree解析xml与json (二):parse_xml设计">
+  <strong>上一篇：</strong><br/>
+  <span>
+  使用boost::property_tree解析xml与json (二):parse_xml设计</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/08/socket10/"  title="socket连接池SocketPool分析(十):libevent">
+ <strong>下一篇：</strong><br/> 
+ <span>socket连接池SocketPool分析(十):libevent
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#boost-property-tree"><span class="toc-number">1.</span> <span class="toc-text">boost::property_tree</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E6%9E%90xml%E7%9A%84%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.</span> <span class="toc-text">解析xml的接口</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#boost-property-tree-read-xml"><span class="toc-number">2.1.</span> <span class="toc-text">boost::property_tree::read_xml</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#get"><span class="toc-number">2.2.</span> <span class="toc-text">get</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#get-child"><span class="toc-number">2.3.</span> <span class="toc-text">get_child</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#attribute"><span class="toc-number">2.4.</span> <span class="toc-text">attribute</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#boost-property-tree-write-xml"><span class="toc-number">2.5.</span> <span class="toc-text">boost::property_tree::write_xml</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#put"><span class="toc-number">2.6.</span> <span class="toc-text">put</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#add-child"><span class="toc-number">2.7.</span> <span class="toc-text">add_child</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#attribute-1"><span class="toc-number">2.8.</span> <span class="toc-text">attribute</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E6%9E%90json%E6%8E%A5%E5%8F%A3"><span class="toc-number">3.</span> <span class="toc-text">解析json接口</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#get%E6%95%B0%E7%BB%84"><span class="toc-number">3.1.</span> <span class="toc-text">get数组</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#put%E6%95%B0%E7%BB%84"><span class="toc-number">3.2.</span> <span class="toc-text">put数组</span></a></li></ol></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

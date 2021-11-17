@@ -1,0 +1,805 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>shell脚本总结篇(二)：shell脚本语法 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="shell的语法shell函数定义shell函数有两种形式 123function name  &amp;#123;    commands&amp;#125;  123name() &amp;#123;    commands&amp;#125; 要使用函数只需要name，而不需要括号，就是说不用name() 有关shell函数的返回值:函数当中使用echo来返回值，比如获取本机的ip地址: 12345678910#!&#x2F;bin">
+<meta property="og:type" content="article">
+<meta property="og:title" content="shell脚本总结篇(二)：shell脚本语法">
+<meta property="og:url" content="http://xiongjun.info/2015/12/03/bash2/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="shell的语法shell函数定义shell函数有两种形式 123function name  &amp;#123;    commands&amp;#125;  123name() &amp;#123;    commands&amp;#125; 要使用函数只需要name，而不需要括号，就是说不用name() 有关shell函数的返回值:函数当中使用echo来返回值，比如获取本机的ip地址: 12345678910#!&#x2F;bin">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-12-03T15:59:02.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.088Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="bash">
+<meta property="article:tag" content="shell">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/03/bash2/" title="shell脚本总结篇(二)：shell脚本语法" itemprop="url">shell脚本总结篇(二)：shell脚本语法</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-03T15:59:02.000Z" itemprop="datePublished"> 发表于 2015-12-03</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#shell%E7%9A%84%E8%AF%AD%E6%B3%95"><span class="toc-number">1.</span> <span class="toc-text">shell的语法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E5%87%BD%E6%95%B0"><span class="toc-number">1.1.</span> <span class="toc-text">shell函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E5%BD%93%E4%B8%AD%E7%9A%84%E5%BE%AA%E7%8E%AF"><span class="toc-number">1.2.</span> <span class="toc-text">shell当中的循环</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#while%E5%BE%AA%E7%8E%AF"><span class="toc-number">1.2.1.</span> <span class="toc-text">while循环</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E5%BD%93%E4%B8%AD%E7%9A%84%E6%95%B0%E7%BB%84%EF%BC%9A"><span class="toc-number">1.3.</span> <span class="toc-text">shell当中的数组：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E8%84%9A%E6%9C%AC%E5%BD%93%E4%B8%AD%E8%B0%83%E7%94%A8%E5%8F%A6%E5%A4%96%E8%84%9A%E6%9C%AC%E7%9A%84%E4%B8%89%E7%A7%8D%E6%96%B9%E6%B3%95%EF%BC%9A"><span class="toc-number">1.4.</span> <span class="toc-text">shell脚本当中调用另外脚本的三种方法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E7%9A%84here-document%E6%96%B9%E6%B3%95%EF%BC%9A"><span class="toc-number">1.5.</span> <span class="toc-text">shell的here document方法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E8%BF%98%E6%9C%89%E4%B8%80%E4%B8%AA%E5%BE%88%E7%BB%8F%E5%85%B8%E7%9A%84%E7%94%A8%E6%B3%95%EF%BC%9A%E5%B0%B1%E6%98%AF%E5%88%86%E7%A6%BB%E5%8F%82%E6%95%B0%E5%92%8C%E9%80%89%E9%A1%B9"><span class="toc-number">1.6.</span> <span class="toc-text">shell还有一个很经典的用法：就是分离参数和选项</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B0%83%E8%AF%95shell%E8%84%9A%E6%9C%AC"><span class="toc-number">2.</span> <span class="toc-text">调试shell脚本</span></a></li></ol>
+		
+		</div>
+		
+		<h2 id="shell的语法"><a href="#shell的语法" class="headerlink" title="shell的语法"></a>shell的语法</h2><h3 id="shell函数"><a href="#shell函数" class="headerlink" title="shell函数"></a>shell函数</h3><p>定义shell函数有两种形式</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">function name  &#123;</span><br><span class="line">    commands</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">name() &#123;</span><br><span class="line">    commands</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>要使用函数只需要name，而不需要括号，就是说不用name()</p>
+<p>有关shell函数的返回值:<br>函数当中使用echo来返回值，比如获取本机的ip地址:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"></span><br><span class="line">function name() &#123;</span><br><span class="line">  echo $(ifconfig | grep &quot;192.&quot; | awk &#x27;&#123;print substr($2, 6)&#125;&#x27;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">#使用result来接收函数返回值</span><br><span class="line">result=$(name)</span><br><span class="line"></span><br><span class="line">echo &quot;result &quot; $&#123;result&#125;</span><br></pre></td></tr></table></figure>
+<p>我有一个经常犯的错误就是使用result赋值的时候，等号两边都会留有空格，因为我写惯了C++程序。但是在shell脚本当中不能这么做，会报错的。</p>
+<h3 id="shell当中的循环"><a href="#shell当中的循环" class="headerlink" title="shell当中的循环"></a>shell当中的循环</h3><h4 id="while循环"><a href="#while循环" class="headerlink" title="while循环"></a>while循环</h4><p>首先介绍一下死循环，类似于C语言当中的while(true).<br>shell当中的死循环是while后面接一个空格，空格后接一个冒号</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">while :</span><br><span class="line">do</span><br><span class="line">  echo &quot;hello&quot;</span><br><span class="line">done</span><br></pre></td></tr></table></figure>
+
+<p>while条件循环:通过中括号来执行条件判断</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"></span><br><span class="line">i=0</span><br><span class="line"></span><br><span class="line">while [ &quot;$i&quot; != &quot;10&quot; ]</span><br><span class="line">do</span><br><span class="line">  i=$[$i+1]</span><br><span class="line">  echo $i</span><br><span class="line">done</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>for..in 条件循环:<br>还是举这个例子，删除七天前的日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">#日志的目录在/root/log-xxxx/ 目录下</span><br><span class="line">dir=&quot;/root/log-*/&quot;</span><br><span class="line"></span><br><span class="line">#在dir目录下查找七天之前修改的日志，并删除</span><br><span class="line">for file in `find $dir -maxdepth 1 -name &quot;*.log&quot; -mtime +7`;do </span><br><span class="line">    echo $file</span><br><span class="line">    rm $file</span><br><span class="line">done</span><br></pre></td></tr></table></figure>
+
+<p>类似C语言的for(;;)循环:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"></span><br><span class="line">for((i=0; i&lt;10; ++i))</span><br><span class="line">do</span><br><span class="line">  echo $i</span><br><span class="line">done</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>这里<code>for</code>当中的两个括号之间不能有空格，必须紧贴，如果是这样将报错:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"></span><br><span class="line">for( (i=0; i&lt;10; ++i) ) </span><br><span class="line">do</span><br><span class="line">  echo $i</span><br><span class="line">done</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<h3 id="shell当中的数组："><a href="#shell当中的数组：" class="headerlink" title="shell当中的数组："></a>shell当中的数组：</h3><p>用一个我工作当中的实例来说明最好不过了：zui</p>
+<p>现在要写一个恢复redis数据库的脚本：要求把<code>/home/data/redis9379/</code>这个目录下的所有<code>dump.rdb</code>列举出来，然后选择一个文件替换掉<code>dump.rdb</code><br>列举出来的文件如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">dump.rdb.201509210000</span><br><span class="line">dump.rdb.201509210100</span><br><span class="line">.....</span><br><span class="line">以此类推</span><br></pre></td></tr></table></figure>
+
+<p>设计思想是这样的，列举选择的是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ls /home/data/redis9379/ | grep &quot;dump.rdb.&quot; | sort -nr</span><br></pre></td></tr></table></figure>
+<p>然后用户选择的话，就直接在终端输入文件名称，然后shell脚本使用<code>read</code>读入文件名称，用cp进行替换。<br>但是这样的问题就是，手动输入文件名称特别不方便，能不能使用代号直接表示文件名呢？就是说shell里面有没有map来对应？</p>
+<p>当然有啦，就是这里要讲到的数组了：<br>使用shell数组来代替map，shell数组并不需要先定义，直接使用即可。<br>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">read  number</span><br><span class="line">array[0]=$number</span><br></pre></td></tr></table></figure>
+<p>那么需要读取数组的信息要使用花括号，<code>$&#123;array[0]&#125;</code><br>获取数组中的所有元素使用<code>*</code>或者<code>@</code>  也就是<code>$&#123;array[*]&#125;</code><br>获取数组元素的个数：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">length=$&#123;#array_name[@]&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我的整体实现代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"></span><br><span class="line">#====================================</span><br><span class="line"># Created On: Sep 22, 2015</span><br><span class="line"># Author: Xiong Jun</span><br><span class="line">#====================================</span><br><span class="line"></span><br><span class="line"># list all redis database of /home/data/redis9379/</span><br><span class="line">echo -ne &quot;\033[32m&quot;; echo &quot;==========The file in /home/data/redis9379/ is=============&quot;; echo -ne &quot;\033[0m&quot; </span><br><span class="line"></span><br><span class="line">count=0</span><br><span class="line">for i in $(ls /home/data/redis9379/ | grep &quot;dump.rdb.&quot; | sort -nr)</span><br><span class="line">do</span><br><span class="line">  #这一行把数组赋值</span><br><span class="line">  map[$count]=$i</span><br><span class="line">  #这一行打印出count 和数组的关系</span><br><span class="line">  echo &quot;$count &quot; $&#123;map[$count]&#125;                                         </span><br><span class="line">  count=$[$count+1]</span><br><span class="line">done</span><br><span class="line"></span><br><span class="line">echo -ne &quot;\033[32m&quot;; echo &quot;===========================================================&quot;; echo -ne &quot;\033[0m&quot; </span><br><span class="line"></span><br><span class="line">echo &quot;please input the file number which you want to replace dump.rdb&quot;</span><br><span class="line">echo &quot;example : 0&quot;</span><br><span class="line">read number </span><br><span class="line">if [ ! -f /home/data/redis9379/$&#123;map[$number]&#125; ]                 #只需要读取number</span><br><span class="line">then</span><br><span class="line">echo -ne &quot;\033[31m&quot; </span><br><span class="line">echo &quot;sorry, the file is not exist in /home/data/redis9379/&quot;</span><br><span class="line">echo -ne &quot;\033[0m&quot; </span><br><span class="line">exit </span><br><span class="line">fi</span><br><span class="line"></span><br><span class="line"># shutdown redis</span><br><span class="line">echo -ne &quot;\033[32m&quot; </span><br><span class="line">echo &quot;************stopping redis**********************&quot;</span><br><span class="line">echo -ne &quot;\033[0m&quot; </span><br><span class="line">#由于redis安装在/usr/local/bin目录下，这里使用绝对路径操作redis</span><br><span class="line">/usr/local/bin/redis-cli -p 9379 shutdown</span><br><span class="line"></span><br><span class="line"># overwrite dump.rdb</span><br><span class="line">cp /home/data/redis9379/dump.rdb /home/data/redis9379/dump.rdb.bak</span><br><span class="line">cp /home/data/redis9379/$&#123;map[$number]&#125; /home/data/redis9379/dump.rdb</span><br><span class="line"></span><br><span class="line"># restart redis</span><br><span class="line">echo -ne &quot;\033[32m&quot; </span><br><span class="line">echo &quot;************restarting redis**********************&quot;</span><br><span class="line">echo -ne &quot;\033[0m&quot; </span><br><span class="line">/usr/local/bin/redis-server /opt/sysconf/redis.conf</span><br></pre></td></tr></table></figure>
+
+<h3 id="shell脚本当中调用另外脚本的三种方法："><a href="#shell脚本当中调用另外脚本的三种方法：" class="headerlink" title="shell脚本当中调用另外脚本的三种方法："></a>shell脚本当中调用另外脚本的三种方法：</h3><p>先写一个测试脚本<code>test.sh</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">echo &#x27;your are in first file&#x27;</span><br></pre></td></tr></table></figure>
+
+<p>方法一：使用<code>source</code>（我使用的方法）<br>是不是觉得很眼熟呢？当然了，经常使用的命令</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">source /etc/profile</span><br></pre></td></tr></table></figure>
+
+<p>那么这个脚本<code>main.sh</code>就应该这么写：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">echo &#x27;your are in second file&#x27;</span><br><span class="line">source test.sh</span><br></pre></td></tr></table></figure>
+
+<p>方法二：使用<code>.</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">echo &#x27;your are in second file&#x27;</span><br><span class="line">. test.sh</span><br></pre></td></tr></table></figure>
+
+<p>方法三：使用<code>sh</code>,不过这种是直接执行test.sh了，并不像上面的方法是把外部的脚本包含进来。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">echo &#x27;your are in second file&#x27;</span><br><span class="line">sh  test.sh</span><br></pre></td></tr></table></figure>
+
+<h3 id="shell的here-document方法："><a href="#shell的here-document方法：" class="headerlink" title="shell的here document方法："></a>shell的here document方法：</h3><p>这个在mysql相关的脚本当中实在是太常用了：</p>
+<p>创建<code>mysql</code>的数据库<code>study</code>,以及表<code>Account</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">MYSQL_SERVER_IP=127.0.0.1</span><br><span class="line">MYSQL_SERVER_PORT=3306</span><br><span class="line">MYSQL_SERVER_USER=root</span><br><span class="line">MYSQL_SERVER_PWD=passwd</span><br><span class="line">MYSQL_SERVER_DB=study</span><br><span class="line"></span><br><span class="line">mysql -h$&#123;MYSQL_SERVER_IP&#125; -P$&#123;MYSQL_SERVER_PORT&#125; -u$&#123;MYSQL_SERVER_USER&#125; -p$&#123;MYSQL_SERVER_PWD&#125; &lt;&lt;EOF</span><br><span class="line">#DROP database if exists $&#123;MYSQL_SERVER_DB&#125;;</span><br><span class="line">CREATE DATABASE $&#123;MYSQL_SERVER_DB&#125;;</span><br><span class="line">use $&#123;MYSQL_SERVER_DB&#125;</span><br><span class="line"></span><br><span class="line">DROP TABLE IF EXISTS Account;  </span><br><span class="line">CREATE TABLE Account (  </span><br><span class="line">	Date 			varchar(30) NOT NULL, </span><br><span class="line">	AccountID 	bigint NOT NULL, </span><br><span class="line">	Detail 			varchar(100), </span><br><span class="line">  PRIMARY KEY (Date, AccounrID)  </span><br><span class="line">)ENGINE=InnoDB DEFAULT CHARSET=gb2312;  </span><br><span class="line">EOF</span><br></pre></td></tr></table></figure>
+
+<p>here document是shell脚本当中一种特殊的重定向方式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">cmd &lt;&lt; EOF</span><br><span class="line">  Here Document Content</span><br><span class="line">EOF</span><br></pre></td></tr></table></figure>
+<p>作用就是将两个 EOF 之间的内容(Here Document Content 部分) 传递给cmd 作为输入参数。就像上面的mysql脚本一样，把sql作为参数传递给了<code>mysql -h$&#123;MYSQL_SERVER_IP&#125; -P$&#123;MYSQL_SERVER_PORT&#125; -u$&#123;MYSQL_SERVER_USER&#125; -p$&#123;MYSQL_SERVER_PWD&#125;</code>。</p>
+<h3 id="shell还有一个很经典的用法：就是分离参数和选项"><a href="#shell还有一个很经典的用法：就是分离参数和选项" class="headerlink" title="shell还有一个很经典的用法：就是分离参数和选项"></a>shell还有一个很经典的用法：就是分离参数和选项</h3><p>首先谈一谈什么是分离参数和选项：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">grep -l &quot;hello&quot; test.txt</span><br></pre></td></tr></table></figure>
+<p>请问：<code>grep</code>程序是怎么识别它的参数的？或者换句话来问：<code>grep</code>是如何知道<code>-l</code>是参数，<code>hello</code>是要匹配的字符，而<code>test.txt</code>是文件？<br><code>grep</code>内部有它的机制，而我们在这里讨论的只是如何让shell脚本做到和命令一样易用：就是通过不同的参数和选项来实现不同的功能。（虽然我一般只会在我的脚本当中写-h,–help这两个）</p>
+<p>首先看代码：<br><code>canshu.sh</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">while [ -n &quot;$1&quot; ]</span><br><span class="line">do</span><br><span class="line">  case &quot;$1&quot; in </span><br><span class="line">    -a) echo &quot;-a option&quot; ;;</span><br><span class="line">    -b) echo &quot;-b option&quot; ;;</span><br><span class="line">    -c) echo &quot;-c option&quot; ;;</span><br><span class="line">    *) echo &quot;$1 is not a option&quot; ;;</span><br><span class="line">  esac</span><br><span class="line">shift</span><br><span class="line">done</span><br></pre></td></tr></table></figure>
+
+<p>关键在于shift，这个shift把<code>$2</code>变到了<code>$1</code>。这样就可以像使用linux命令一样使用脚本canshu.sh，加上选项-a -b -c,的时候-b本来是<code>$2</code>，经过shift变成了<code>$1</code>,同时-c就变成了<code>$2</code>,那么-b就进入了<code>case</code>的判断，而再经过一次shift之后，-c也就进入了<code>case</code>的判断。</p>
+<p>这里只不过解决了让shell脚本添加参数的问题，那么接下来才是分离参数和选项。</p>
+<p>linux处理这个问题的方式是使用双破折线（–）。bash和其他shell会用双破折线来表明选项结束了。看到双破折线之后，shell会将剩下的命令行参数当作参数来处理。（使用过node.js开发的程序员一定熟悉pm2的双破折线，这里是一样的意思）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">while [ -n &quot;$1&quot; ]</span><br><span class="line">do</span><br><span class="line">case &quot;$1&quot; in </span><br><span class="line">-a) echo &quot;-a option&quot; ;;</span><br><span class="line">-b) echo &quot;-b option&quot; ;;</span><br><span class="line">-c) echo &quot;-c option&quot; ;;</span><br><span class="line">--) shift #使用shift将当前的参数双破折线移除</span><br><span class="line">break ;;</span><br><span class="line">*) echo &quot;$1 is not a option&quot; ;;</span><br><span class="line">esac</span><br><span class="line">shift</span><br><span class="line">done</span><br><span class="line"></span><br><span class="line">count=1</span><br><span class="line">for param in $@</span><br><span class="line">do</span><br><span class="line">echo &quot;para $count: $param&quot;</span><br><span class="line">count=$[ $count+1 ]</span><br><span class="line">done</span><br></pre></td></tr></table></figure>
+
+<p>最后附上一些附录：是<a target="_blank" rel="noopener" href="http://book.douban.com/subject/11589828/">《linux命令行与shell脚本编程大全》</a>当中的，提到通用的linux命令选项，我编写shell脚本的时候当需要用到选项的时候（虽然情况非常少，我一般也就写写-h和–help），会参考这张表格:</p>
+<table>
+<thead>
+<tr>
+<th>选项</th>
+<th align="right">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-a</td>
+<td align="right">显示一个对象</td>
+</tr>
+<tr>
+<td>-c</td>
+<td align="right">生成一个计数</td>
+</tr>
+<tr>
+<td>-d</td>
+<td align="right">指定一个目录</td>
+</tr>
+<tr>
+<td>-e</td>
+<td align="right">扩展一个对象</td>
+</tr>
+<tr>
+<td>-f</td>
+<td align="right">指定读入数据的文件</td>
+</tr>
+<tr>
+<td>-h</td>
+<td align="right">显示命令的帮助信息</td>
+</tr>
+<tr>
+<td>-i</td>
+<td align="right">忽略文本大小写</td>
+</tr>
+<tr>
+<td>-l</td>
+<td align="right">产生输出的长格式版本</td>
+</tr>
+<tr>
+<td>-n</td>
+<td align="right">使用非交互模式（批量）</td>
+</tr>
+<tr>
+<td>-o</td>
+<td align="right">指定将所有输出重定向到的输出文件</td>
+</tr>
+<tr>
+<td>-q</td>
+<td align="right">以安静模式运行</td>
+</tr>
+<tr>
+<td>-r</td>
+<td align="right">递归地处理目录和文件</td>
+</tr>
+<tr>
+<td>-s</td>
+<td align="right">以安静模式运行</td>
+</tr>
+<tr>
+<td>-v</td>
+<td align="right">生成详细输出</td>
+</tr>
+<tr>
+<td>-x</td>
+<td align="right">排除某个对象</td>
+</tr>
+<tr>
+<td>-y</td>
+<td align="right">对所有问题回答yes</td>
+</tr>
+</tbody></table>
+<h2 id="调试shell脚本"><a href="#调试shell脚本" class="headerlink" title="调试shell脚本"></a>调试shell脚本</h2><p>bash -x<br>请参见陈皓老师的博文<a target="_blank" rel="noopener" href="http://coolshell.cn/articles/1379.html">如何调试bash脚本</a>。陈皓老师的文章清晰易懂，我学习调试bash脚本的方法都是从这篇文章获得的。</p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/bash/">bash</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/bash/">bash</a><a href="/tags/shell/">shell</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/03/bash2/" data-title="shell脚本总结篇(二)：shell脚本语法 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/03/bash3/" title="shell脚本总结篇(三)：附上我常用的shell脚本">
+  <strong>上一篇：</strong><br/>
+  <span>
+  shell脚本总结篇(三)：附上我常用的shell脚本</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/03/bash1/"  title="shell脚本总结篇(一)：我在shell脚本当中常用的命令">
+ <strong>下一篇：</strong><br/> 
+ <span>shell脚本总结篇(一)：我在shell脚本当中常用的命令
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#shell%E7%9A%84%E8%AF%AD%E6%B3%95"><span class="toc-number">1.</span> <span class="toc-text">shell的语法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E5%87%BD%E6%95%B0"><span class="toc-number">1.1.</span> <span class="toc-text">shell函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E5%BD%93%E4%B8%AD%E7%9A%84%E5%BE%AA%E7%8E%AF"><span class="toc-number">1.2.</span> <span class="toc-text">shell当中的循环</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#while%E5%BE%AA%E7%8E%AF"><span class="toc-number">1.2.1.</span> <span class="toc-text">while循环</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E5%BD%93%E4%B8%AD%E7%9A%84%E6%95%B0%E7%BB%84%EF%BC%9A"><span class="toc-number">1.3.</span> <span class="toc-text">shell当中的数组：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E8%84%9A%E6%9C%AC%E5%BD%93%E4%B8%AD%E8%B0%83%E7%94%A8%E5%8F%A6%E5%A4%96%E8%84%9A%E6%9C%AC%E7%9A%84%E4%B8%89%E7%A7%8D%E6%96%B9%E6%B3%95%EF%BC%9A"><span class="toc-number">1.4.</span> <span class="toc-text">shell脚本当中调用另外脚本的三种方法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E7%9A%84here-document%E6%96%B9%E6%B3%95%EF%BC%9A"><span class="toc-number">1.5.</span> <span class="toc-text">shell的here document方法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#shell%E8%BF%98%E6%9C%89%E4%B8%80%E4%B8%AA%E5%BE%88%E7%BB%8F%E5%85%B8%E7%9A%84%E7%94%A8%E6%B3%95%EF%BC%9A%E5%B0%B1%E6%98%AF%E5%88%86%E7%A6%BB%E5%8F%82%E6%95%B0%E5%92%8C%E9%80%89%E9%A1%B9"><span class="toc-number">1.6.</span> <span class="toc-text">shell还有一个很经典的用法：就是分离参数和选项</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B0%83%E8%AF%95shell%E8%84%9A%E6%9C%AC"><span class="toc-number">2.</span> <span class="toc-text">调试shell脚本</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

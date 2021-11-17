@@ -1,0 +1,715 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>socket连接池SocketPool分析(十):libevent | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="我还在读大学的时候，C++的库听过最有名的是boost，其次就是这个libevent了，但是一直没有去了解，正好，借着复习UNP的时候学习一下这个大名鼎鼎的网络库。 libevent的官方文档：http:&#x2F;&#x2F;libevent.org  libevent是一个典型的reactor模型。有关reactor模型就请参见文章《socket连接池SocketPool分析(八): 并发服务器》。在这篇文章当中">
+<meta property="og:type" content="article">
+<meta property="og:title" content="socket连接池SocketPool分析(十):libevent">
+<meta property="og:url" content="http://xiongjun.info/2015/12/08/socket10/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="我还在读大学的时候，C++的库听过最有名的是boost，其次就是这个libevent了，但是一直没有去了解，正好，借着复习UNP的时候学习一下这个大名鼎鼎的网络库。 libevent的官方文档：http:&#x2F;&#x2F;libevent.org  libevent是一个典型的reactor模型。有关reactor模型就请参见文章《socket连接池SocketPool分析(八): 并发服务器》。在这篇文章当中">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-12-08T14:43:02.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.089Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="socket">
+<meta property="article:tag" content="SocketPoll">
+<meta property="article:tag" content="libevent">
+<meta property="article:tag" content="epoll">
+<meta name="twitter:card" content="summary">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/08/socket10/" title="socket连接池SocketPool分析(十):libevent" itemprop="url">socket连接池SocketPool分析(十):libevent</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-08T14:43:02.000Z" itemprop="datePublished"> 发表于 2015-12-08</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8%E5%88%B0%E7%9A%84libevent%E7%9A%845%E4%B8%AA%E6%8E%A5%E5%8F%A3"><span class="toc-number">1.</span> <span class="toc-text">用到的libevent的5个接口</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#struct-event-base-event-base-new"><span class="toc-number">1.1.</span> <span class="toc-text">struct event_base* event_base_new()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#struct-event-event-new-struct-event-base-base-evutil-socket-t-listenfd-EV-READ-event-callback-fn-callback-func-void-base"><span class="toc-number">1.2.</span> <span class="toc-text">struct event* event_new(struct event_base* base, evutil_socket_t listenfd, EV_READ, event_callback_fn callback_func, (void*)base)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-event-add-struct-event-listen-event-const-struct-timeval-tv"><span class="toc-number">1.3.</span> <span class="toc-text">int event_add(struct event* listen_event,  const struct timeval *tv)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#event-base-dispatch-struct-event-base-base"><span class="toc-number">1.4.</span> <span class="toc-text">event_base_dispatch(struct event_base* base)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#event-base-free-struct-event-base-base"><span class="toc-number">1.5.</span> <span class="toc-text">event_base_free(struct event_base* base)</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#bufferevent%E7%9A%84%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.</span> <span class="toc-text">bufferevent的接口</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#struct-bufferevent-bufferevent-socket-new-struct-event-base-base-evutil-socket-t-fd-int-options"><span class="toc-number">2.1.</span> <span class="toc-text">struct bufferevent * bufferevent_socket_new(struct event_base *base, evutil_socket_t fd,  int options)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#void-bufferevent-setcb-struct-bufferevent-bufev-bufferevent-data-cb-readcb-bufferevent-data-cb-writecb-bufferevent-event-cb-eventcb-void-cbarg"><span class="toc-number">2.2.</span> <span class="toc-text">void bufferevent_setcb(struct bufferevent *bufev, bufferevent_data_cb readcb, bufferevent_data_cb writecb, bufferevent_event_cb eventcb, void *cbarg)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-bufferevent-enable-struct-bufferevent-bufev-short-event"><span class="toc-number">2.3.</span> <span class="toc-text">int bufferevent_enable(struct bufferevent *bufev, short event)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#size-t-bufferevent-read-struct-bufferevent-bufev-void-data-size-t-size"><span class="toc-number">2.4.</span> <span class="toc-text">size_t bufferevent_read(struct bufferevent *bufev, void *data, size_t size)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-bufferevent-write-struct-bufferevent-bufev-const-void-data-size-t-size"><span class="toc-number">2.5.</span> <span class="toc-text">int bufferevent_write(struct bufferevent *bufev,const void *data, size_t size)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#bufferevent-free-bev"><span class="toc-number">2.6.</span> <span class="toc-text">bufferevent_free(bev);</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B7%E7%9C%8B%E6%88%91%E7%9A%84gtest-server%EF%BC%8C%E6%98%AF%E4%BD%BF%E7%94%A8libevent%E5%AE%9E%E7%8E%B0%E7%9A%84%EF%BC%9A"><span class="toc-number">3.</span> <span class="toc-text">请看我的gtest_server，是使用libevent实现的：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BB%B6%E4%BC%B8%E9%98%85%E8%AF%BB%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">延伸阅读：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E3%80%8Asocket%E8%BF%9E%E6%8E%A5%E6%B1%A0SocketPool%E5%88%86%E6%9E%90%E3%80%8B%E7%B3%BB%E5%88%97%E6%96%87%E7%AB%A0%E6%80%BB%E7%BB%93%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">《socket连接池SocketPool分析》系列文章总结：</span></a></li></ol>
+		
+		</div>
+		
+		<p>我还在读大学的时候，C++的库听过最有名的是boost，其次就是这个libevent了，但是一直没有去了解，正好，借着复习UNP的时候学习一下这个大名鼎鼎的网络库。</p>
+<p>libevent的官方文档：<a target="_blank" rel="noopener" href="http://libevent.org/">http://libevent.org </a></p>
+<p>libevent是一个典型的reactor模型。有关reactor模型就请参见文章《socket连接池SocketPool分析(八): 并发服务器》。在这篇文章当中我只谈使用libevent。</p>
+<h2 id="用到的libevent的5个接口"><a href="#用到的libevent的5个接口" class="headerlink" title="用到的libevent的5个接口"></a>用到的libevent的5个接口</h2><ul>
+<li>event_base_new()</li>
+<li>event_new()</li>
+<li>event_add()</li>
+<li>event_base_dispatch()</li>
+<li>event_base_free()</li>
+</ul>
+<blockquote>
+<p>使用这些接口需要包含<code>event2/event.h</code>头文件。</p>
+</blockquote>
+<h3 id="struct-event-base-event-base-new"><a href="#struct-event-base-event-base-new" class="headerlink" title="struct event_base* event_base_new()"></a>struct event_base* event_base_new()</h3><p>创建一个event_base的指针。类似于<code>epoll</code>当中的创建一个句柄。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">int efd = epoll_create(FDSIZE);</span><br></pre></td></tr></table></figure>
+<p>以后所有的接口都需要调用这个<code>event_base</code>类型的指针，并且每个线程有且只有一个<code>event_base</code>指针。</p>
+<h3 id="struct-event-event-new-struct-event-base-base-evutil-socket-t-listenfd-EV-READ-event-callback-fn-callback-func-void-base"><a href="#struct-event-event-new-struct-event-base-base-evutil-socket-t-listenfd-EV-READ-event-callback-fn-callback-func-void-base" class="headerlink" title="struct event* event_new(struct event_base* base, evutil_socket_t listenfd, EV_READ, event_callback_fn callback_func, (void*)base)"></a>struct event* event_new(struct event_base* base, evutil_socket_t listenfd, EV_READ, event_callback_fn callback_func, (void*)base)</h3><p>创建一个事件event。相当于<code>epoll_ctl</code>当中的<code>EPOLL_CTL_ADD</code>。<br>第一个参数是根据<code>event_base_new()</code>创建的<code>event_base</code>指针，第二个参数是socket描述符。<br>第三个是属性：</p>
+<ul>
+<li> EV_TIMEOUT: 超时</li>
+<li> EV_READ: 只要网络缓冲中还有数据，回调函数就会被触发</li>
+<li> EV_WRITE: 只要塞给网络缓冲的数据被写完，回调函数就会被触发</li>
+<li> EV_SIGNAL: POSIX信号量，参考manual吧</li>
+<li> EV_PERSIST: 不指定这个属性的话，回调函数被触发后事件会被删除</li>
+<li> EV_ET: Edge-Trigger边缘触发，参考EPOLL_ET<br>这些属性使用<code>|</code>连接起来。</li>
+</ul>
+<p>接下来就是回调函数callback_func，它的类型event_callback_fn是这样子的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">typedef void(* event_callback_fn)(evutil_socket_t sockfd, short event_type, void *arg)</span><br></pre></td></tr></table></figure>
+
+<p>最后的参数<code>(void*)base</code>是传递给回调函数<code>callback_func</code>的参数，就是传给了上面的那个<code>void *arg</code>参数。</p>
+<p>在我们使用<code>epoll</code>当中，使用<code>epoll_wait()</code>等待，等到有事件触发之后，我们还需要使用<code>if</code>判断是哪一个文件描述符触发的事件。这里直接使用回调函数来做，省去了<code>if</code>判断的功夫。</p>
+<h3 id="int-event-add-struct-event-listen-event-const-struct-timeval-tv"><a href="#int-event-add-struct-event-listen-event-const-struct-timeval-tv" class="headerlink" title="int event_add(struct event* listen_event,  const struct timeval *tv)"></a>int event_add(struct event* listen_event,  const struct timeval *tv)</h3><p>相当于<code>epoll_ctl</code>当中的<code>EPOLL_CTL_ADD</code>。</p>
+<p>这个函数就是把事件注册到<code>event_base</code>指针上去。如果该事件已经在活动事件队列或者超时队列中，先从中删除。</p>
+<p>注意的是这里没有像<code>EPOLL_CTL_DEL</code>这样的删除事件的方法。因为可以使用<code>EV_PERSIST</code>这个属性：不指定这个属性的话，回调函数被触发后事件会被删除。<br>所以这里不需要手动删除，而是自动删除。</p>
+<p>第一个参数就是通过<code>event_new</code>创建的事件，第二个参数则是设定超时值。我一般直接设为NULL，表示永不超时。</p>
+<h3 id="event-base-dispatch-struct-event-base-base"><a href="#event-base-dispatch-struct-event-base-base" class="headerlink" title="event_base_dispatch(struct event_base* base)"></a>event_base_dispatch(struct event_base* base)</h3><p>启动事件循环，这样才能开始处理发生的事件。循环将一直持续，直到不再有需要关注的事件，或者是遇到event_loopbreak()/event_loopexit()函数。</p>
+<h3 id="event-base-free-struct-event-base-base"><a href="#event-base-free-struct-event-base-base" class="headerlink" title="event_base_free(struct event_base* base)"></a>event_base_free(struct event_base* base)</h3><p>释放<code>event_base</code>指针，相当于<code>epoll</code>当中的<code>close(efd)</code>。</p>
+<h2 id="bufferevent的接口"><a href="#bufferevent的接口" class="headerlink" title="bufferevent的接口"></a>bufferevent的接口</h2><p>libevent2提供了bufferevent，直接使用这个就可以不用再用<code>read()</code>函数和<code>write()</code>函数了，而是使用<code>bufferevent_read()</code>和<code>bufferevent_write()</code>来代替。</p>
+<h3 id="struct-bufferevent-bufferevent-socket-new-struct-event-base-base-evutil-socket-t-fd-int-options"><a href="#struct-bufferevent-bufferevent-socket-new-struct-event-base-base-evutil-socket-t-fd-int-options" class="headerlink" title="struct bufferevent * bufferevent_socket_new(struct event_base *base, evutil_socket_t fd,  int options)"></a>struct bufferevent * bufferevent_socket_new(struct event_base *base, evutil_socket_t fd,  int options)</h3><p>创建一个<code>bufferevent</code>类型的指针,接下来的<code>bufferevent</code>接口全部都要用到这个指针。</p>
+<h3 id="void-bufferevent-setcb-struct-bufferevent-bufev-bufferevent-data-cb-readcb-bufferevent-data-cb-writecb-bufferevent-event-cb-eventcb-void-cbarg"><a href="#void-bufferevent-setcb-struct-bufferevent-bufev-bufferevent-data-cb-readcb-bufferevent-data-cb-writecb-bufferevent-event-cb-eventcb-void-cbarg" class="headerlink" title="void bufferevent_setcb(struct bufferevent *bufev, bufferevent_data_cb readcb, bufferevent_data_cb writecb, bufferevent_event_cb eventcb, void *cbarg)"></a>void bufferevent_setcb(struct bufferevent *bufev, bufferevent_data_cb readcb, bufferevent_data_cb writecb, bufferevent_event_cb eventcb, void *cbarg)</h3><p>在<code>bufferevent</code>指针上绑定读的回调函数，写的回调函数，和异常的回调函数。</p>
+<h3 id="int-bufferevent-enable-struct-bufferevent-bufev-short-event"><a href="#int-bufferevent-enable-struct-bufferevent-bufev-short-event" class="headerlink" title="int bufferevent_enable(struct bufferevent *bufev, short event)"></a>int bufferevent_enable(struct bufferevent *bufev, short event)</h3><p>启动<code>bufferevet</code>，就相当于<code>event_base_dispatch</code>。</p>
+<h3 id="size-t-bufferevent-read-struct-bufferevent-bufev-void-data-size-t-size"><a href="#size-t-bufferevent-read-struct-bufferevent-bufev-void-data-size-t-size" class="headerlink" title="size_t bufferevent_read(struct bufferevent *bufev, void *data, size_t size)"></a>size_t bufferevent_read(struct bufferevent *bufev, void *data, size_t size)</h3><p>调用bufferevent_read()从输入缓存里删除size字节，存到内存的data位置，返回被删除的字节数。<br>与<code>read()</code>函数相比，<code>read()</code>函数第一个参数是文件描述符，<code>bufferevent_read()</code>函数第一个参数是<code>bufferevent</code>指针。</p>
+<h3 id="int-bufferevent-write-struct-bufferevent-bufev-const-void-data-size-t-size"><a href="#int-bufferevent-write-struct-bufferevent-bufev-const-void-data-size-t-size" class="headerlink" title="int bufferevent_write(struct bufferevent *bufev,const void *data, size_t size)"></a>int bufferevent_write(struct bufferevent *bufev,const void *data, size_t size)</h3><p>添加数据到输出缓存里，调用bufferevent_write()把内存里data位置的size字节添加到输出缓存的末尾。</p>
+<h3 id="bufferevent-free-bev"><a href="#bufferevent-free-bev" class="headerlink" title="bufferevent_free(bev);"></a>bufferevent_free(bev);</h3><p> 使用这个释放资源。</p>
+<h2 id="请看我的gtest-server，是使用libevent实现的："><a href="#请看我的gtest-server，是使用libevent实现的：" class="headerlink" title="请看我的gtest_server，是使用libevent实现的："></a>请看我的<code>gtest_server</code>，是使用libevent实现的：</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;iostream&gt;</span><br><span class="line">#include &lt;unistd.h&gt;</span><br><span class="line">#include &lt;stdlib.h&gt;</span><br><span class="line">#include &lt;assert.h&gt;</span><br><span class="line">#include &lt;thread&gt;</span><br><span class="line">#include &lt;event2/event.h&gt;</span><br><span class="line">#include &lt;event2/bufferevent.h&gt;</span><br><span class="line">#include &quot;SocketPool/server_connection_pool.h&quot;</span><br><span class="line"></span><br><span class="line">using std::cout;</span><br><span class="line">using std::cerr;</span><br><span class="line">using std::endl;</span><br><span class="line"></span><br><span class="line">const string HOST = &quot;127.0.0.1&quot;;</span><br><span class="line">const unsigned PORT = 9999;</span><br><span class="line"></span><br><span class="line">const int MAXLINE = 1024;</span><br><span class="line">char buf[MAXLINE];</span><br><span class="line"></span><br><span class="line">// 初始化全局的socket连接池</span><br><span class="line">static ServerPoolPtr serverpool_ptr(new ServerPool);</span><br><span class="line"></span><br><span class="line">typedef struct mybase &#123;</span><br><span class="line">  SocketObjPtr socketPtr;</span><br><span class="line">  struct event_base* base;</span><br><span class="line">&#125;mybaseStruct;</span><br><span class="line"></span><br><span class="line">void do_accept(evutil_socket_t listenfd, short event, void *arg);</span><br><span class="line">void read_cb(struct bufferevent *bev, void *arg);</span><br><span class="line">void write_cb(struct bufferevent *bev, void *arg);</span><br><span class="line">void error_cb(struct bufferevent *bev, short event, void *arg);</span><br><span class="line"></span><br><span class="line">int main(int argc, char** argv) &#123;</span><br><span class="line">  // 使用glog来打日志,除错</span><br><span class="line">  google::InitGoogleLogging(argv[0]);</span><br><span class="line">  FLAGS_log_dir = &quot;../log&quot;;  </span><br><span class="line">  //从连接池当中取出端口号为9999的连接</span><br><span class="line">  if (!serverpool_ptr-&gt;Empty()) &#123;</span><br><span class="line">    SocketObjPtr listener = serverpool_ptr-&gt;GetConnection(HOST, PORT);</span><br><span class="line">    //==========================================================</span><br><span class="line">    int listenfd = listener-&gt;Get();</span><br><span class="line">    //这里不用epoll了,而是使用封装了epoll的libevent</span><br><span class="line">    //因为这个socket连接池的代码还不需要那么极致的性能</span><br><span class="line">    struct event_base* base = event_base_new();</span><br><span class="line">    //仅仅这一条语句就相当于 int efd = epoll_create(FDSIZE); struct epoll_event ev[EPOLLEVENTS]; 这两条语句</span><br><span class="line">    //可见epoll的语法要比select简洁,而libevent的语法又比epoll简洁</span><br><span class="line">    assert(base != NULL);</span><br><span class="line">    mybaseStruct mbs;</span><br><span class="line">    mbs.socketPtr = listener;</span><br><span class="line">    mbs.base = base;</span><br><span class="line">    struct event* listen_event = event_new(base, listenfd, EV_READ|EV_PERSIST, do_accept, (void*)&amp;mbs);</span><br><span class="line">    //仅仅这一条语句就相当于 struct epoll_event tmp; tmp.events = EPOLLIN; tmp.data.fd = listenfd;这三条语句,其中EV_READ就相当于EPOLLIN,</span><br><span class="line">    //由于在回调函数中需要使用SocketObjPtr,这里我定义一个新的结构体mybase</span><br><span class="line">    event_add(listen_event, NULL);</span><br><span class="line">    //这一条语句就相当于 epoll_ctl(efd, EPOLL_CTL_ADD, listenfd, &amp;tmp); </span><br><span class="line">  </span><br><span class="line">    //在unp_server当中,这里本来应该定义char buf[MAXLINE];我把它写成全局的</span><br><span class="line">    //这里相比unp_server连while (true)的大循环都省了</span><br><span class="line">    event_base_dispatch(base);</span><br><span class="line">  </span><br><span class="line">    //事件循环结束,清理bufferevent和event</span><br><span class="line">    event_base_free(base);</span><br><span class="line">  </span><br><span class="line">    serverpool_ptr-&gt;ReleaseConnection(listener);</span><br><span class="line">  &#125; else &#123;</span><br><span class="line">    cerr &lt;&lt; &quot;Sorry, pool is empty!&quot; &lt;&lt; endl;</span><br><span class="line">  &#125;</span><br><span class="line">  return 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">//当listenfd上有事件发生时,将调用回调函数do_accept</span><br><span class="line">void do_accept(evutil_socket_t listenfd, short event, void *arg) &#123;</span><br><span class="line">  mybaseStruct* mbsPtr = (mybaseStruct*)arg;</span><br><span class="line">  SocketObjPtr listener = mbsPtr-&gt;socketPtr;</span><br><span class="line">  struct event_base* base = mbsPtr-&gt;base;</span><br><span class="line">  evutil_socket_t fd = listener-&gt;Accept();  </span><br><span class="line">  if (fd &lt; 0) &#123;</span><br><span class="line">    cerr &lt;&lt; &quot;accept is error&quot; &lt;&lt; endl;</span><br><span class="line">  &#125; </span><br><span class="line">  //使用bufferevent</span><br><span class="line">  //其实相当于一个高级一点的struct event_base* base = event_base_new();</span><br><span class="line">  struct bufferevent* bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);</span><br><span class="line">  //这里设置好当需要读写和错误发生的回调函数</span><br><span class="line">  bufferevent_setcb(bev, read_cb, NULL, error_cb, arg);</span><br><span class="line">  //还记得unp_server当中的删除EPOLLIN事件吗?我当时说的是也可以不删除,只要是read失败了再删除</span><br><span class="line">  bufferevent_enable(bev, EV_READ|EV_WRITE|EV_PERSIST); </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void read_cb(struct bufferevent *bev, void *arg) &#123;</span><br><span class="line">  int n;</span><br><span class="line">  evutil_socket_t fd = bufferevent_getfd(bev);</span><br><span class="line">  while (n=bufferevent_read(bev, buf, MAXLINE), n&gt;0) &#123;</span><br><span class="line">    //回显给客户端</span><br><span class="line">    bufferevent_write(bev, buf, n);</span><br><span class="line">    //将buf写回到客户端的时候一定要清空buf,否则的话下次read的时候buf里面会存在客户端上次发送的残留</span><br><span class="line">    memset(buf, 0, sizeof(buf));</span><br><span class="line">  &#125;  </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void write_cb(struct bufferevent *bev, void *arg) &#123; &#125;</span><br><span class="line"></span><br><span class="line">//和unp_server的策略一样,只要是有错误就删除bufferevent事件</span><br><span class="line">void error_cb(struct bufferevent *bev, short event, void *arg) &#123;</span><br><span class="line">  evutil_socket_t fd = bufferevent_getfd(bev);</span><br><span class="line">  if (event &amp; BEV_EVENT_TIMEOUT) &#123;</span><br><span class="line">    LOG(ERROR) &lt;&lt; &quot;Time out\n&quot;; </span><br><span class="line">  &#125; else if (event &amp; BEV_EVENT_EOF) &#123;</span><br><span class="line">    LOG(ERROR) &lt;&lt; &quot;Client closed\n&quot;;</span><br><span class="line">  &#125;</span><br><span class="line">  bufferevent_free(bev); </span><br><span class="line">&#125;</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+
+<h2 id="延伸阅读："><a href="#延伸阅读：" class="headerlink" title="延伸阅读："></a>延伸阅读：</h2><ul>
+<li><a target="_blank" rel="noopener" href="http://blog.csdn.net/yusiguyuan/article/category/2171081">鱼思故渊的libevent源码分析</a></li>
+<li><a target="_blank" rel="noopener" href="http://blog.csdn.net/sparkliang/article/category/660506">sparkliang的libevent源码分析</a></li>
+<li><a target="_blank" rel="noopener" href="http://blog.csdn.net/gbjj123/article/details/25189287">libevent中的hello-world.c解讯</a></li>
+</ul>
+<h2 id="《socket连接池SocketPool分析》系列文章总结："><a href="#《socket连接池SocketPool分析》系列文章总结：" class="headerlink" title="《socket连接池SocketPool分析》系列文章总结："></a>《socket连接池SocketPool分析》系列文章总结：</h2><p>自从我写完<a target="_blank" rel="noopener" href="http://blog.csdn.net/u014120684/article/category/5843431">《数据库连接池DBPool分析》</a>系列文章到今天已经有2个月的时间了，没想到拖了这么久，但是终于写完了连接池的部分和对网络编程模式的部分，但是一个<code>one loop per thread</code>我并没有实现，因为这个需要进程间通信和线程间通信的知识，我打算再复习一下<a target="_blank" rel="noopener" href="http://book.douban.com/subject/4118577/">《UNPv2》</a>这本书，等复习完成之后，我再开始写。</p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/SocketPoll/">SocketPoll</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/socket/">socket</a><a href="/tags/SocketPoll/">SocketPoll</a><a href="/tags/libevent/">libevent</a><a href="/tags/epoll/">epoll</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/08/socket10/" data-title="socket连接池SocketPool分析(十):libevent | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/13/xml/" title="使用boost::property_tree解析xml与json (一):概述">
+  <strong>上一篇：</strong><br/>
+  <span>
+  使用boost::property_tree解析xml与json (一):概述</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/12/08/socket9/"  title="socket连接池SocketPool分析(九):C10k problem">
+ <strong>下一篇：</strong><br/> 
+ <span>socket连接池SocketPool分析(九):C10k problem
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8%E5%88%B0%E7%9A%84libevent%E7%9A%845%E4%B8%AA%E6%8E%A5%E5%8F%A3"><span class="toc-number">1.</span> <span class="toc-text">用到的libevent的5个接口</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#struct-event-base-event-base-new"><span class="toc-number">1.1.</span> <span class="toc-text">struct event_base* event_base_new()</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#struct-event-event-new-struct-event-base-base-evutil-socket-t-listenfd-EV-READ-event-callback-fn-callback-func-void-base"><span class="toc-number">1.2.</span> <span class="toc-text">struct event* event_new(struct event_base* base, evutil_socket_t listenfd, EV_READ, event_callback_fn callback_func, (void*)base)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-event-add-struct-event-listen-event-const-struct-timeval-tv"><span class="toc-number">1.3.</span> <span class="toc-text">int event_add(struct event* listen_event,  const struct timeval *tv)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#event-base-dispatch-struct-event-base-base"><span class="toc-number">1.4.</span> <span class="toc-text">event_base_dispatch(struct event_base* base)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#event-base-free-struct-event-base-base"><span class="toc-number">1.5.</span> <span class="toc-text">event_base_free(struct event_base* base)</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#bufferevent%E7%9A%84%E6%8E%A5%E5%8F%A3"><span class="toc-number">2.</span> <span class="toc-text">bufferevent的接口</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#struct-bufferevent-bufferevent-socket-new-struct-event-base-base-evutil-socket-t-fd-int-options"><span class="toc-number">2.1.</span> <span class="toc-text">struct bufferevent * bufferevent_socket_new(struct event_base *base, evutil_socket_t fd,  int options)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#void-bufferevent-setcb-struct-bufferevent-bufev-bufferevent-data-cb-readcb-bufferevent-data-cb-writecb-bufferevent-event-cb-eventcb-void-cbarg"><span class="toc-number">2.2.</span> <span class="toc-text">void bufferevent_setcb(struct bufferevent *bufev, bufferevent_data_cb readcb, bufferevent_data_cb writecb, bufferevent_event_cb eventcb, void *cbarg)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-bufferevent-enable-struct-bufferevent-bufev-short-event"><span class="toc-number">2.3.</span> <span class="toc-text">int bufferevent_enable(struct bufferevent *bufev, short event)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#size-t-bufferevent-read-struct-bufferevent-bufev-void-data-size-t-size"><span class="toc-number">2.4.</span> <span class="toc-text">size_t bufferevent_read(struct bufferevent *bufev, void *data, size_t size)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#int-bufferevent-write-struct-bufferevent-bufev-const-void-data-size-t-size"><span class="toc-number">2.5.</span> <span class="toc-text">int bufferevent_write(struct bufferevent *bufev,const void *data, size_t size)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#bufferevent-free-bev"><span class="toc-number">2.6.</span> <span class="toc-text">bufferevent_free(bev);</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B7%E7%9C%8B%E6%88%91%E7%9A%84gtest-server%EF%BC%8C%E6%98%AF%E4%BD%BF%E7%94%A8libevent%E5%AE%9E%E7%8E%B0%E7%9A%84%EF%BC%9A"><span class="toc-number">3.</span> <span class="toc-text">请看我的gtest_server，是使用libevent实现的：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BB%B6%E4%BC%B8%E9%98%85%E8%AF%BB%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">延伸阅读：</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E3%80%8Asocket%E8%BF%9E%E6%8E%A5%E6%B1%A0SocketPool%E5%88%86%E6%9E%90%E3%80%8B%E7%B3%BB%E5%88%97%E6%96%87%E7%AB%A0%E6%80%BB%E7%BB%93%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">《socket连接池SocketPool分析》系列文章总结：</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

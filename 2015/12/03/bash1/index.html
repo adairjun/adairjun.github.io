@@ -1,0 +1,811 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>shell脚本总结篇(一)：我在shell脚本当中常用的命令 | Adair&#39;s Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="adairjun">
+    
+
+    
+    <meta name="description" content="这三篇文章是我零散的20篇印象笔记的总结。 首先罗列一下脚本当中常用的命令记录一下使用命令的惯用方法，每个示例都很短小，不能作为命令的入门教程。 echo用法：echo在脚本当中是与用户做交互的，我一般常使用的echo用法是用于打印出颜色： 123echo -ne &quot;\033[31m&quot;    以后的echo都打印出红色echo -ne &quot;\033[0m&quot;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="shell脚本总结篇(一)：我在shell脚本当中常用的命令">
+<meta property="og:url" content="http://xiongjun.info/2015/12/03/bash1/index.html">
+<meta property="og:site_name" content="Adair&#39;s Home">
+<meta property="og:description" content="这三篇文章是我零散的20篇印象笔记的总结。 首先罗列一下脚本当中常用的命令记录一下使用命令的惯用方法，每个示例都很短小，不能作为命令的入门教程。 echo用法：echo在脚本当中是与用户做交互的，我一般常使用的echo用法是用于打印出颜色： 123echo -ne &quot;\033[31m&quot;    以后的echo都打印出红色echo -ne &quot;\033[0m&quot;">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://ww1.sinaimg.cn/large/9d13bd87gw1eyj0zjpmcvj20ib02vt94.jpg">
+<meta property="og:image" content="http://ww2.sinaimg.cn/large/9d13bd87gw1eyj2y3x22kj21030233zf.jpg">
+<meta property="og:image" content="http://ww3.sinaimg.cn/large/9d13bd87gw1eyj3qsmbjjj20yb01aq3g.jpg">
+<meta property="article:published_time" content="2015-12-03T15:56:53.000Z">
+<meta property="article:modified_time" content="2021-11-17T16:13:07.087Z">
+<meta property="article:author" content="adairjun">
+<meta property="article:tag" content="bash">
+<meta property="article:tag" content="shell">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://ww1.sinaimg.cn/large/9d13bd87gw1eyj0zjpmcvj20ib02vt94.jpg">
+
+    
+    <link rel="alternative" href="/atom.xml" title="Adair&#39;s Home" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/%02.css">
+<link rel="stylesheet" href="/.css">
+
+<meta name="generator" content="Hexo 5.4.0"></head>
+
+  <body>
+    <header>
+      
+<div>
+		
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="Adair&#39;s Home">Adair&#39;s Home</a></h1>
+				<h2 class="blog-motto">书写|为了更好地思考</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="搜索" />
+						<input type="hidden" name="q" value="site:xiongjun.info">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+  
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2015/12/03/bash1/" title="shell脚本总结篇(一)：我在shell脚本当中常用的命令" itemprop="url">shell脚本总结篇(一)：我在shell脚本当中常用的命令</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="/about" title="adairjun" target="_blank" itemprop="author">adairjun</a>
+		
+  <p class="article-time">
+    <time datetime="2015-12-03T15:56:53.000Z" itemprop="datePublished"> 发表于 2015-12-03</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A6%96%E5%85%88%E7%BD%97%E5%88%97%E4%B8%80%E4%B8%8B%E8%84%9A%E6%9C%AC%E5%BD%93%E4%B8%AD%E5%B8%B8%E7%94%A8%E7%9A%84%E5%91%BD%E4%BB%A4"><span class="toc-number">1.</span> <span class="toc-text">首先罗列一下脚本当中常用的命令</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#echo%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.1.</span> <span class="toc-text">echo用法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#find%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.2.</span> <span class="toc-text">find用法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#grep%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.3.</span> <span class="toc-text">grep用法：</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#ack"><span class="toc-number">1.3.1.</span> <span class="toc-text">ack</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#sed%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.4.</span> <span class="toc-text">sed用法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#awk%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.5.</span> <span class="toc-text">awk用法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#xargs%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.6.</span> <span class="toc-text">xargs用法：</span></a></li></ol></li></ol>
+		
+		</div>
+		
+		<p>这三篇文章是我零散的20篇印象笔记的总结。</p>
+<h2 id="首先罗列一下脚本当中常用的命令"><a href="#首先罗列一下脚本当中常用的命令" class="headerlink" title="首先罗列一下脚本当中常用的命令"></a>首先罗列一下脚本当中常用的命令</h2><p>记录一下使用命令的惯用方法，每个示例都很短小，不能作为命令的入门教程。</p>
+<h3 id="echo用法："><a href="#echo用法：" class="headerlink" title="echo用法："></a>echo用法：</h3><p>echo在脚本当中是与用户做交互的，我一般常使用的echo用法是用于打印出颜色：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">echo -ne &quot;\033[31m&quot;    以后的echo都打印出红色</span><br><span class="line">echo -ne &quot;\033[0m&quot;       取消颜色</span><br><span class="line">echo -ne &quot;\033[32m&quot;      以后的echo都打印出绿色</span><br></pre></td></tr></table></figure>
+<p><code>31m</code>代表的是红色，<code>32m</code>代表绿色，<code>33m</code>就是黄色，依次类推。<br>在终端使用命令来查看下效果：<br><img src="http://ww1.sinaimg.cn/large/9d13bd87gw1eyj0zjpmcvj20ib02vt94.jpg" alt="echo 颜色"><br>可以看到出现了红色的”hello”</p>
+<h3 id="find用法："><a href="#find用法：" class="headerlink" title="find用法："></a>find用法：</h3><p>find是用来在目录中查找文件的工具。</p>
+<p>find 的<code>-mount</code>选项：<br>告诉find不要搜索挂载的其他文件系统的目录，这样搜索速度会更快<br>使用<code>-or</code>增加搜索：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">find / -mount -name &quot;*.jar&quot; -or -name &quot;*.sql&quot;</span><br><span class="line">find / -mount -name &quot;hosts&quot; -type d</span><br></pre></td></tr></table></figure>
+<p><code>-type d</code> 希望找到目录, d 是directory的意思</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">find / -mount -newer consola.txt 查找比consola.txt更新的文件</span><br><span class="line">find / -mount ! -newer consola.txt  查找比consola.txt更老的文件</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>命令</th>
+<th align="right">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-amin -n</td>
+<td align="right">在最近的 n 分钟内被读取过</td>
+</tr>
+<tr>
+<td>-amin +n</td>
+<td align="right">在 n 分钟之前被读取过</td>
+</tr>
+<tr>
+<td>-atime -n</td>
+<td align="right">在最近的 n 天内读取过</td>
+</tr>
+<tr>
+<td>-atime +n</td>
+<td align="right">在 n 天前读取过的档案</td>
+</tr>
+<tr>
+<td>-cmin -n</td>
+<td align="right">在最近的 n 分钟内被变更过</td>
+</tr>
+<tr>
+<td>-cmin +n</td>
+<td align="right">在 n 分钟前被变更过</td>
+</tr>
+<tr>
+<td>-ctime -n</td>
+<td align="right">在最近的 n 天内变更过</td>
+</tr>
+<tr>
+<td>-ctime +n</td>
+<td align="right">在 n 天前变更过</td>
+</tr>
+<tr>
+<td>-mmin -n</td>
+<td align="right">在最近的 n 分钟内被修改过</td>
+</tr>
+<tr>
+<td>-mmin +n</td>
+<td align="right">在 n 分钟前被修改过</td>
+</tr>
+<tr>
+<td>-mtime -n</td>
+<td align="right">在最近的 n 天内修改过</td>
+</tr>
+<tr>
+<td>-mtime +n</td>
+<td align="right">在 n 天前修改过</td>
+</tr>
+</tbody></table>
+<p>注意<code>-ctime</code>和<code>-mtime</code>的区别：<br><code>-ctime</code>指的是文件本身最后被变更的时间，变更动作可以使chmod、chgrp、mv等等<br><code>-mtime</code>指的是文件内容最后被修改的时间，修改动作可以使echo重定向、vi等等</p>
+<p>如果日志在服务器上只帮用户保留7天，7天到期就删除日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">#日志的目录在/root/log-xxxx/ 目录下</span><br><span class="line">dir=&quot;/root/log-*/&quot;</span><br><span class="line"></span><br><span class="line">#在dir目录下查找七天之前修改的日志，并删除</span><br><span class="line">for file in `find $dir -maxdepth 1 -name &quot;*.log&quot; -mtime +7`;do </span><br><span class="line">    echo $file</span><br><span class="line">    rm $file</span><br><span class="line">done</span><br><span class="line"></span><br><span class="line">#这里只是为了在删除之前打印出来看一下，如果不想查看的话其实还可以这样用;</span><br><span class="line">#find $dir -maxdepth 1 -name &quot;*.log&quot; -mtime +7 -exec rm &#123;&#125; \;</span><br></pre></td></tr></table></figure>
+
+<p><code>-exec</code>：将找到的文件作为shell的参数，直到被<code>\;</code>终止，实际上终止并不是\号，而是分号，但是分号需要转义。因为<code>-exec</code>执行的是一个嵌入式命令，所以嵌入式命令必须要以一个转义的分号结束。<br>魔术字符串<code>&#123;&#125;</code>代表的就是find查找出来的文件。</p>
+<p>列举比consola.txt更新的文件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">find . -newer consola.txt -exec ls -l &#123;&#125; \;</span><br></pre></td></tr></table></figure>
+<p><code>-ok</code>与<code>-exec</code>唯一的区别就在于-ok会提示用户进行确认，一般只用<code>-exec</code></p>
+<p>相似的工具还有<code>locate</code>，<code>whereis</code>，<code>which</code>：</p>
+<p><code>locate</code>是<code>find -name</code>的另外一种写法，但是更快，原因在于它不搜索具体目录，而是搜索一个数据库（<code>/var/lib/locatedb</code>），这个数据库中含有本地所有文件信息。Linux系统自动创建这个数据库，并且每天自动更新一次，所以使用locate命令查不到最新变动过的文件。为了避免这种情况，可以在使用<code>locate</code>之前，先使用<code>updatedb</code>命令，手动更新数据库。</p>
+<p>比如查找mingling.txt文件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">locate mingling.txt</span><br></pre></td></tr></table></figure>
+
+<p><code>whereis</code> 命令只用于程序名的搜索，而且只搜索二进制文件（参数-b）、man说明文件（参数-m）和源代码文件（参数-s）。如果省略参数，则返回所有信息。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">whereis gcc</span><br></pre></td></tr></table></figure>
+
+<p><code>which</code>命令的作用是，在<code>PATH</code>变量指定的路径中，搜索某个系统命令的位置，并且返回第一个搜索结果。也就是说，使用<code>which</code>命令，就可以看到某个系统命令是否存在，以及执行的到底是哪一个位置的命令。</p>
+<p>那么就是which &lt; whereis &lt; locate &lt; find</p>
+<h3 id="grep用法："><a href="#grep用法：" class="headerlink" title="grep用法："></a>grep用法：</h3><p>find用来查找文件，grep用来查找文件当中的字符串，使用</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">grep -Ir &quot;hello&quot; ./  </span><br></pre></td></tr></table></figure>
+<p>在当前目录下查找目录下中有”hello“内容的所有文件。<br> grep只能使用普通的正则表达式，而要使用扩展的正则表达式要用-E参数或者egrep，这两个没有任何分别。</p>
+<p> 来看一个用法：<br>将文件名中含有Spark,Hadoop,Hive,HBase这几个字符串的文件里面的top_organization_id换成organization_id:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ls|egrep &quot;Spark|Hadoop|Hive|HBase&quot;|xargs sed -i &#x27;s/top_organization_id/organization_id/g&#x27;</span><br></pre></td></tr></table></figure>
+<p>使用了egrep就能使用<code>|</code>这个扩展的正则表达式。</p>
+<p>除了-e之外，grep的<code>-r</code>（检索目录）和<code>-l</code>（小写的L只显示文件名）<code>-I</code>（大写的i，不检索二进制文件），<code>-v</code>（反向检索）这四个参数也经常使用。</p>
+<h4 id="ack"><a href="#ack" class="headerlink" title="ack"></a>ack</h4><p>grep有一个特别的替代工具—<code>ack</code>。我们会经常遇见一种场景——查找工程下特定类型的文件中的匹配文本。当然，把 <code>find</code> 和 <code>grep</code> 组合起来也能达到目的，但用 <code>ack</code> 可以更方便的完成这个操作，节省不少时间。<br>在<code>debian</code>和<code>ubuntu</code>系统中，</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get -y install ack-grep</span><br></pre></td></tr></table></figure>
+<p>安装<code>ack-grep</code>，当然查找命令也是<code>ack-grep</code>而不是<code>ack</code></p>
+<p>比如想要在<code>./DBPool</code>下的<code>cpp</code>文件中查找 <code>pool</code> 关键字：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">find ./DBPool -type f -name &quot;*.cpp&quot; -exec grep --color=auto &quot;pool&quot; &#123;&#125; \;</span><br></pre></td></tr></table></figure>
+<p>或者直接使用ack:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ack --cc &quot;pool&quot; ./DBPool</span><br></pre></td></tr></table></figure>
+<p>其中<code>--cc</code>指定了查找的的类型, 相比之下ack的命令要简单很多，要查看ack支持的类型使用：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ack --help-types</span><br></pre></td></tr></table></figure>
+<p>我在自己的机器上经常使用<code>ack</code>来代替<code>grep</code>，但是我写脚本一般不用<code>ack</code>，因为考虑到移植性，在脚本移植的服务器上面还要安装<code>ack</code>确实挺麻烦，所以脚本当中一般是用<code>find</code>和<code>grep</code>。</p>
+<h3 id="sed用法："><a href="#sed用法：" class="headerlink" title="sed用法："></a>sed用法：</h3><p>sed和awk必须要配合正则表达式才能威力无穷。<br>先来看一个展现sed威力的地方：<br>有一个<code>db.xml</code>文件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">&lt;DBConnections&gt;</span><br><span class="line">  &lt;DBConn name=&quot;DBConnection1&quot; mode=&quot;Master&quot;&gt;</span><br><span class="line">    &lt;type&gt;REDIS&lt;/type&gt;</span><br><span class="line">    &lt;ip&gt;127.0.0.1&lt;/ip&gt;</span><br><span class="line">    &lt;port&gt;9379&lt;/port&gt;</span><br><span class="line">    &lt;username&gt;&lt;/username&gt;</span><br><span class="line">    &lt;password&gt;&lt;/password&gt;</span><br><span class="line">  &lt;/DBConn&gt;</span><br><span class="line">&lt;/DBConnections&gt;</span><br></pre></td></tr></table></figure>
+<p>使用如下命令来获取<code>db.xml</code>当中的ip和端口号：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat db.xml | tr -s &#x27;\r\n&#x27; &#x27; &#x27; | sed &#x27;s/^.*REDIS&lt;\/type&gt;\s*&lt;ip&gt;\(\w*\.\w*\.\w*\.\w*\)&lt;\/ip&gt;\s&lt;port&gt;\(\w*\)&lt;\/port&gt;.*$/\1:\2/g&#x27;</span><br></pre></td></tr></table></figure>
+<p>可以查看执行结果：<br><img src="http://ww2.sinaimg.cn/large/9d13bd87gw1eyj2y3x22kj21030233zf.jpg" alt="sed威力"><br>如图所示：结果为127.0.0.1:9379<br>正则表达式使用（）圆括号来捕获，\1，\2存放被捕获的变量，<br>在<a target="_blank" rel="noopener" href="http://book.douban.com/subject/2154713/">《精通正则表达式》</a>这本书当中，提出了非捕获型括号：(?:)<br>这边的用了一个开括号，一个问号，一个冒号表示。<br>这种非捕获型括号，仅仅匹配但是并不保存变量。<br>可惜的是，这种非捕获型的括号，sed和awk并不支持。<br>还有一个我觉得很好用的，但是sed和awk也不支持的正则表达式是<code>\S</code>，用来匹配所有非空白字符，注意是大写的S<br>比如在一封邮件当中有:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">From:  hello@gmail.com  hello@163.com</span><br></pre></td></tr></table></figure>
+<p>用正则表达式匹配的话，那么正则表达式应该这样来写：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">^From:\ (\S+)\ (\S+)$</span><br></pre></td></tr></table></figure>
+<p>使用<code>(\S+)</code>就能匹配两边都是空格的情况，可惜sed和awk也不支持。</p>
+<p>grep、sed、awk、perl等对正则表达式的支持的差别：<a target="_blank" rel="noopener" href="http://my.oschina.net/onionsheep/blog/346926?fromerr=7TNEmIxM">http://my.oschina.net/onionsheep/blog/346926?fromerr=7TNEmIxM</a></p>
+<p>再举一个利用捕获型括号的用法：<br>去除连续重复行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat hello.txt | sed &#x27;s/^\(.*\)\(\1\)/\1/g&#x27;</span><br></pre></td></tr></table></figure>
+<p>以上的命令执行将无效，因为sed是行处理，一次处理一行数据，所以正确的命令应该是这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat hello.txt | tr &quot;\n&quot; &quot; &quot; | sed &#x27;s/^\(.*\)\(\1\)//g&#x27;</span><br></pre></td></tr></table></figure>
+<p>利用<code>tr &quot;\n&quot; &quot; &quot;</code>去掉换行符，把文本变成一行，才能用sed来处理。<br>在<a target="_blank" rel="noopener" href="http://book.douban.com/subject/11589828/">《linux命令行与shell脚本编程大全》</a>这本书中说到了sed的高级用法，能处理多行。</p>
+<p>有关sed更多更详细的用法，请参照陈皓老师的博客：<a target="_blank" rel="noopener" href="http://coolshell.cn/articles/9104.html">sed简明教程</a></p>
+<h3 id="awk用法："><a href="#awk用法：" class="headerlink" title="awk用法："></a>awk用法：</h3><p>在安装程序的脚本当中经常遇见获取最新版本的shell函数，其实使用awk的话，一条命令就够了。</p>
+<p>展示出所有的mongodb版本：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -s http://pecl.php.net/package/mongo | awk -F&#x27;&gt;&#x27; &#x27;/mongo-.+.tgz/&#123;print $3&#125;&#x27; | cut -d&#x27;&lt;&#x27; -f1</span><br></pre></td></tr></table></figure>
+<p><code>curl</code>命令返回的将是<code>html</code>格式的字符串，使用<code>awk</code>过滤掉不必要的信息。<br>在awk使用花括号的时候仅仅只能够被单引号包含，不能够使用双引号。</p>
+<p>再在上面的命令中加上<code>sort</code>和<code>tail</code>直接获取最新版本：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -s http://pecl.php.net/package/mongo | awk -F&#x27;&gt;&#x27; &#x27;/mongo-.+.tgz/&#123;print $3&#125;&#x27; | cut -d&#x27;&lt;&#x27; -f1 | sort -V | tail -1</span><br></pre></td></tr></table></figure>
+<p>看看结果吧：<br><img src="http://ww3.sinaimg.cn/large/9d13bd87gw1eyj3qsmbjjj20yb01aq3g.jpg" alt="awk结果"></p>
+<p>先匹配后输出：</p>
+<p>当找到有ChangeLog的那一行的时候，输出<code>$2</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">awk &#x27;/Changelog/&#123;print $2&#125;&#x27; hello.txt</span><br></pre></td></tr></table></figure>
+
+<p>去除掉后缀：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ls gtest_client.cpp | awk -F &quot;.cpp&quot; &#x27;&#123;print $1&#125;&#x27;</span><br></pre></td></tr></table></figure>
+<p>我经常在脚本当中使用这个来批量转换文件后缀</p>
+<p>使用<code>awk</code>的函数<code>substr</code>函数来获取本机ip:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ifconfig | grep &quot;192.&quot; | awk &#x27;&#123;print substr($2,6)&#125;&#x27;</span><br></pre></td></tr></table></figure>
+
+<p>在<code>awk</code>当中使用<code>if</code>语句：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">awk &#x27;&#123;if(NR == 2) &#123;print $1;exit&#125;&#125;&#x27; hello.txt</span><br></pre></td></tr></table></figure>
+
+<p>将字符串变为大写：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo $1 | awk &#x27;&#123;print toupper($0)&#125;&#x27;</span><br></pre></td></tr></table></figure>
+<p>或者变为小写：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo $1 | awk &#x27;&#123;print tolower($0)&#125;&#x27;</span><br></pre></td></tr></table></figure>
+<p>这个命令我用在了我的代码生成器当中。</p>
+<h3 id="xargs用法："><a href="#xargs用法：" class="headerlink" title="xargs用法："></a>xargs用法：</h3><p>xargs配合管道使用才能显得威力无穷</p>
+<p>将内容当中含有”HADOOP_SPARK”的文件检索出里面是否含有”top_organization”，<br>使用<code>grep -l</code> 只显示文件名</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ls | xargs grep -l &quot;HADOOP_SPARK&quot; | uniq | xargs grep &quot;top_organization&quot; --color=auto</span><br></pre></td></tr></table></figure>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/bash/">bash</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/bash/">bash</a><a href="/tags/shell/">shell</a>
+  </div>
+
+</div>
+
+
+
+	<div class="article-share" id="share">
+	
+	  <div data-url="http://xiongjun.info/2015/12/03/bash1/" data-title="shell脚本总结篇(一)：我在shell脚本当中常用的命令 | Adair&#39;s Home" data-tsina="" class="share clearfix">
+	  </div>
+	
+	</div>
+
+
+</footer>
+
+   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2015/12/03/bash2/" title="shell脚本总结篇(二)：shell脚本语法">
+  <strong>上一篇：</strong><br/>
+  <span>
+  shell脚本总结篇(二)：shell脚本语法</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2015/11/29/regex/"  title="C/C++ 使用正则表达式">
+ <strong>下一篇：</strong><br/> 
+ <span>C/C++ 使用正则表达式
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+
+<section id="comments" class="comment">
+  <div id="disqus_thread">
+    <noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+  </div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A6%96%E5%85%88%E7%BD%97%E5%88%97%E4%B8%80%E4%B8%8B%E8%84%9A%E6%9C%AC%E5%BD%93%E4%B8%AD%E5%B8%B8%E7%94%A8%E7%9A%84%E5%91%BD%E4%BB%A4"><span class="toc-number">1.</span> <span class="toc-text">首先罗列一下脚本当中常用的命令</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#echo%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.1.</span> <span class="toc-text">echo用法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#find%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.2.</span> <span class="toc-text">find用法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#grep%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.3.</span> <span class="toc-text">grep用法：</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#ack"><span class="toc-number">1.3.1.</span> <span class="toc-text">ack</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#sed%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.4.</span> <span class="toc-text">sed用法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#awk%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.5.</span> <span class="toc-text">awk用法：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#xargs%E7%94%A8%E6%B3%95%EF%BC%9A"><span class="toc-number">1.6.</span> <span class="toc-text">xargs用法：</span></a></li></ol></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  
+<div class="github-card">
+<p class="asidetitle">Github 名片</p>
+<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
+</div>
+  </div>
+
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+		  
+			<li><a href="/categories/MessageQueue/" title="MessageQueue">MessageQueue<sup>6</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/bash/" title="bash">bash<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/git/" title="git">git<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/历程/" title="历程">历程<sup>2</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/日志/" title="日志">日志<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/正则表达式/" title="正则表达式">正则表达式<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编程错误/" title="编程错误">编程错误<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/编译/" title="编译">编译<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/设计模式/" title="设计模式">设计模式<sup>1</sup></a></li>
+		  
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			
+				<li><a href="/tags/socket/" title="socket">socket<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/SocketPoll/" title="SocketPoll">SocketPoll<sup>10</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/git/" title="git">git<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/bash/" title="bash">bash<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/shell/" title="shell">shell<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/boost/" title="boost">boost<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/property-tree/" title="property_tree">property_tree<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/IPC/" title="IPC">IPC<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/protobuf/" title="protobuf">protobuf<sup>3</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/epoll/" title="epoll">epoll<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/UNPv1/" title="UNPv1">UNPv1<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/四次挥手/" title="四次挥手">四次挥手<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/json/" title="json">json<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/xml/" title="xml">xml<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/历程/" title="历程">历程<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/MessageQueue/" title="MessageQueue">MessageQueue<sup>2</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/g/" title="g++">g++<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/编译/" title="编译">编译<sup>1</sup></a></li>
+			
+		
+			
+				<li><a href="/tags/连接/" title="连接">连接<sup>1</sup></a></li>
+			
+		
+		</ul>
+</div>
+
+
+  
+  <div class="tagcloudlist">
+    <p class="asidetitle">标签云</p>
+    <div class="tagcloudlist clearfix">
+       <a href="/tags/C/" style="font-size: 10px;">C++</a> <a href="/tags/C1000k/" style="font-size: 10px;">C1000k</a> <a href="/tags/C10k/" style="font-size: 10px;">C10k</a> <a href="/tags/IO%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8/" style="font-size: 10px;">IO多路复用</a> <a href="/tags/IPC/" style="font-size: 16.67px;">IPC</a> <a href="/tags/MessageQueue/" style="font-size: 13.33px;">MessageQueue</a> <a href="/tags/SharedMemory/" style="font-size: 10px;">SharedMemory</a> <a href="/tags/SocketObj/" style="font-size: 10px;">SocketObj</a> <a href="/tags/SocketPoll/" style="font-size: 20px;">SocketPoll</a> <a href="/tags/UNPv1/" style="font-size: 13.33px;">UNPv1</a> <a href="/tags/bash/" style="font-size: 16.67px;">bash</a> <a href="/tags/boost/" style="font-size: 16.67px;">boost</a> <a href="/tags/classFactory/" style="font-size: 10px;">classFactory</a> <a href="/tags/debug/" style="font-size: 10px;">debug</a> <a href="/tags/epoll/" style="font-size: 13.33px;">epoll</a> <a href="/tags/g/" style="font-size: 10px;">g++</a> <a href="/tags/git/" style="font-size: 16.67px;">git</a> <a href="/tags/gitlab/" style="font-size: 10px;">gitlab</a> <a href="/tags/hexo/" style="font-size: 10px;">hexo</a> <a href="/tags/json/" style="font-size: 13.33px;">json</a> <a href="/tags/libevent/" style="font-size: 10px;">libevent</a> <a href="/tags/log/" style="font-size: 10px;">log</a> <a href="/tags/logobj/" style="font-size: 10px;">logobj</a> <a href="/tags/property-tree/" style="font-size: 16.67px;">property_tree</a> <a href="/tags/protobuf/" style="font-size: 16.67px;">protobuf</a> <a href="/tags/rapidjson/" style="font-size: 10px;">rapidjson</a> <a href="/tags/rapidxml/" style="font-size: 10px;">rapidxml</a> <a href="/tags/regex/" style="font-size: 10px;">regex</a> <a href="/tags/select/" style="font-size: 10px;">select</a> <a href="/tags/shell/" style="font-size: 16.67px;">shell</a> <a href="/tags/singleton/" style="font-size: 10px;">singleton</a> <a href="/tags/socket/" style="font-size: 20px;">socket</a> <a href="/tags/xml/" style="font-size: 13.33px;">xml</a> <a href="/tags/%E4%B8%89%E6%AC%A1%E6%8F%A1%E6%89%8B/" style="font-size: 10px;">三次握手</a> <a href="/tags/%E5%8E%86%E7%A8%8B/" style="font-size: 13.33px;">历程</a> <a href="/tags/%E5%8F%8D%E5%B0%84/" style="font-size: 10px;">反射</a> <a href="/tags/%E5%9B%9B%E6%AC%A1%E6%8C%A5%E6%89%8B/" style="font-size: 13.33px;">四次挥手</a> <a href="/tags/%E5%B9%B6%E5%8F%91%E6%9C%8D%E5%8A%A1%E5%99%A8/" style="font-size: 10px;">并发服务器</a> <a href="/tags/%E5%BA%93/" style="font-size: 10px;">库</a> <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" style="font-size: 10px;">正则表达式</a> <a href="/tags/%E7%BC%96%E8%AF%91/" style="font-size: 10px;">编译</a> <a href="/tags/%E8%BF%9E%E6%8E%A5/" style="font-size: 10px;">连接</a>
+    </div>
+  </div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+        
+          <li>
+            
+            	<a href="http://blog.csdn.net/u014120684" target="_blank" title="我的CSDN博客">我的CSDN博客</a>
+            
+          </li>
+        
+          <li>
+            
+            	<a href="http://liujiacai.net/" target="_blank" title="刘家财">刘家财</a>
+            
+          </li>
+        
+    </ul>
+</div>
+
+  
+
+<div class="doubanshow">
+<p class="asidetitle">豆瓣秀</p>
+<div>
+<script type="text/javascript" src="http://www.douban.com/service/badge/adairjun/?show=collection&amp;n=12&amp;columns=3&amp;hidelogo=yes&amp;hideself=yes&amp;cat=book|movie" ></script>
+</div>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+    <iframe width="100%" height="119" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=1&speed=0&skin=9&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=&verifier=&dpc=1"></iframe>
+</div>
+
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> Hello! <br/>
+			This is my blog.</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
+		
+		
+		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
+		
+		
+		<a href="https://github.com/adairjun" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		<a href="http://stackoverflow.com/users/4112599" target="_blank" class="icon-stack-overflow" title="stackoverflow"></a>
+		
+		
+		
+		
+		
+		<a href="https://www.douban.com/people/adairjun" target="_blank" class="icon-douban" title="豆瓣"></a>
+		
+		
+		
+		
+		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+			
+		
+
+		<p class="copyright">
+		Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Jacman">Jacman</a> © 2021 
+		
+		<a href="/about" target="_blank" title="adairjun">adairjun</a>
+		
+        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
+
+        <!--  站长统计代码 -->
+        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/jquery.qrcode-0.12.0.min.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+  
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else{
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  c.click(function(){
+    ta.css('display', 'block').addClass('fadeIn');
+  });
+  o.click(function(){
+    ta.css('display', 'none');
+  });
+  $(window).scroll(function(){
+    ta.css("top",Math.max(140,320-$(this).scrollTop()));
+  });
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<div class="hoverqrcode clearfix"></div>',
+  '<a class="overlay" id="qrcode"></a>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="微信"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="微博"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+
+  $('.hoverqrcode').hide();
+
+  var myWidth = 0;
+  function updatehoverqrcode(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+    var qrsize = myWidth > 1024 ? 200:100;
+    var options = {render: 'image', size: qrsize, fill: '#2ca6cb', text: url, radius: 0.5, quiet: 1};
+    var p = $('.article-share-qrcode').position();
+    $('.hoverqrcode').empty().css('width', qrsize).css('height', qrsize)
+                          .css('left', p.left-qrsize/2+20).css('top', p.top-qrsize-10)
+                          .qrcode(options);
+  };
+  $(window).resize(function(){
+    $('.hoverqrcode').hide();
+  });
+  $('.article-share-qrcode').click(function(){
+    updatehoverqrcode();
+    $('.hoverqrcode').toggle();
+  });
+  $('.article-share-qrcode').hover(function(){}, function(){
+      $('.hoverqrcode').hide();
+  });
+});   
+</script>
+
+
+
+
+<script type="text/javascript">
+
+var disqus_shortname = 'httpsxiongjuninfo';
+
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+(function(){
+  var dsq = document.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//' + disqus_shortname + '.disqus.com/count.js';
+  (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+<!-- Analytics Begin -->
+
+
+
+
+
+<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s23.cnzz.com/z_stat.php%3Fid%3D1257708289' type='text/javascript'%3E%3C/script%3E"));</script>
+
+<!-- Analytics End -->
+
+<!-- Totop Begin -->
+
+	<div id="totop">
+	<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+	</div>
+	<script src="/js/totop.js"></script>
+
+<!-- Totop End -->
+
+<!-- MathJax Begin -->
+<!-- mathjax config similar to math.stackexchange -->
+
+
+<!-- MathJax End -->
+
+<!-- Tiny_search Begin -->
+
+<!-- Tiny_search End -->
+<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
+</script>
+
+  </body>
+</html>
+
+<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>
