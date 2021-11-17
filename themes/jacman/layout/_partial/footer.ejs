@@ -12,9 +12,6 @@
 	</section>
 	 <% } %>
 	<div class="social-font" class="clearfix">
-		<% if(theme.author.v2ex){ %>
-		<a href="http://v2ex.com/member/<%=theme.author.v2ex %>" target="_blank" class="icon-v2ex" title="V2EX"></a>
-		<% } %>
 		<% if(theme.author.weibo){ %>
 		<a href="http://weibo.com/<%= theme.author.weibo %>" target="_blank" class="icon-weibo" title="微博"></a>
 		<% } %>
@@ -67,10 +64,6 @@
 		<% } else {%>
 		<a href="<%= config.url %>" title="<%= config.title %>"><%= config.title %></a>
 		<% } %>
-        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
-
-        <!--  站长统计代码 -->
-        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
-
+		
 		</p>
 </div>

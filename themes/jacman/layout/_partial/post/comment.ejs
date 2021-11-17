@@ -1,20 +1,6 @@
 <% if (theme.duoshuo_shortname && page.comments){ %>
 <section id="comments" class="comment">
-<!-- Duoshuo Comment BEGIN -->
 	<div class="ds-thread" data-thread-key="<%- page.path %>" data-title="<%- page.title %>" data-url="<%- page.permalink %>"></div>
-<script type="text/javascript">
-  var duoshuoQuery = {short_name: '<%= theme.duoshuo_shortname %>' };
-  (function() {
-      var ds = document.createElement('script');
-      ds.type = 'text/javascript';
-      ds.async = true;
-      ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
-      ds.charset = 'UTF-8';
-      (document.getElementsByTagName('head')[0] 
-      || document.getElementsByTagName('body')[0]).appendChild(ds);
-  })();
-</script>
-<!-- Duoshuo Comment END -->
 </section>
 <% } %>
 <% if( (config.disqus_shortname || theme.disqus_shortname) && page.comments) { %>
@@ -23,4 +9,10 @@
     <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
   </div>
 </section>
+<% } %>
+<% if (theme.gentie_key && page.comments){ %>
+<div id="cloud-tie-wrapper" class="cloud-tie-wrapper"></div>
+<% } %>
+<% if (theme.changyan_appid && page.comments){ %>
+<div id="SOHUCS" style="width: 95%;"></div>
 <% } %>
