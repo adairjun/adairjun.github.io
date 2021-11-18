@@ -1,7 +1,7 @@
 ---
 title: 快速掌握一门语言常用的50% - javascript
 date: 2021-11-18 00:25:25
-categories: gitlab
+categories: javascript
 ---
 
 ## 了解该语言的基本数据类型，基本语法和主要语言构造；主要数学运算符和print函数的使用，达到能够写课后习题水平；
@@ -140,8 +140,8 @@ let str="Visit Microsoft! Visit Microsoft!";
 let n=str.replace("Microsoft","Runoob");
 
 // 执行一个全局替换:
-var str="Mr Blue has a blue house and a blue car";
-var n=str.replace(/blue/g,"red");
+let str="Mr Blue has a blue house and a blue car";
+let n=str.replace(/blue/g,"red");
 ```
 
 数组需要掌握的方法:
@@ -190,7 +190,7 @@ map需要掌握的方法:
 // 迭代 
 
 // for each 很少用
-var myMap = new Map();
+let myMap = new Map();
 myMap.set(0, "zero");
 myMap.set(1, "one");
  
@@ -201,27 +201,27 @@ myMap.forEach(function(value, key) {
 
 
 //使用 for of
-var myMap = new Map();
+let myMap = new Map();
 myMap.set(0, "zero");
 myMap.set(1, "one");
  
 // 将会显示两个 log。 一个是 "0 = zero" 另一个是 "1 = one"
-for (var [key, value] of myMap) {
+for (let [key, value] of myMap) {
   console.log(key + " = " + value);
 }
-for (var [key, value] of myMap.entries()) {
+for (let [key, value] of myMap.entries()) {
   console.log(key + " = " + value);
 }
 /* 这个 entries 方法返回一个新的 Iterator 对象，它按插入顺序包含了 Map 对象中每个元素的 [key, value] 数组。 */
  
 // 将会显示两个log。 一个是 "0" 另一个是 "1"
-for (var key of myMap.keys()) {
+for (let key of myMap.keys()) {
   console.log(key);
 }
 /* 这个 keys 方法返回一个新的 Iterator 对象， 它按插入顺序包含了 Map 对象中每个元素的键。 */
  
 // 将会显示两个log。 一个是 "zero" 另一个是 "one"
-for (var value of myMap.values()) {
+for (let value of myMap.values()) {
   console.log(value);
 }
 
@@ -375,7 +375,7 @@ fs.readFile('input.txt', function (err, data) {
 });
 
 // 同步读取
-var data = fs.readFileSync('input.txt');
+let data = fs.readFileSync('input.txt');
 console.log("同步读取: " + data.toString());
 
 console.log("程序执行完毕。");
@@ -423,10 +423,10 @@ try {
 import * as events from "events"
 
 // 创建 eventEmitter 对象
-var eventEmitter = new events.EventEmitter();
+let eventEmitter = new events.EventEmitter();
  
 // 创建事件处理程序
-var connectHandler = () => {
+let connectHandler = () => {
    console.log('连接成功。');
   
    // 触发 data_received 事件 
@@ -464,7 +464,7 @@ class MyClass {
   }
 }
 
-var myClass = new MyClass()
+let myClass = new MyClass()
 let json = JSON.stringify(myClass);
 
 // 反序列化
