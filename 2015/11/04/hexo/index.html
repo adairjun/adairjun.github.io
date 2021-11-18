@@ -153,7 +153,7 @@
 <p>如果这里使用<code>hexo server</code>报错的话,请删除blog目录,再重新执行hexo init blog的操作.因为是初始化的问题,需要重头再来</p>
 </blockquote>
 <h3 id="部署到github上"><a href="#部署到github上" class="headerlink" title="部署到github上"></a>部署到github上</h3><h3 id="部署到Github前需要配置-config-yml文件。"><a href="#部署到Github前需要配置-config-yml文件。" class="headerlink" title="部署到Github前需要配置_config.yml文件。"></a>部署到Github前需要配置_config.yml文件。</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">deploy:</span><br><span class="line">  type: github</span><br><span class="line">  repository: git@github.com:username/username.github.io.git</span><br><span class="line">  branch: master</span><br></pre></td></tr></table></figure>
-<p>reponsitory配置成你的仓库地址，在这里我的是<a href="mailto:&#x67;&#105;&#x74;&#64;&#103;&#x69;&#116;&#x68;&#117;&#98;&#x2e;&#x63;&#111;&#109;">&#x67;&#105;&#x74;&#64;&#103;&#x69;&#116;&#x68;&#117;&#98;&#x2e;&#x63;&#111;&#109;</a>:adairjun/adairjun.github.io.git</p>
+<p>reponsitory配置成你的仓库地址，在这里我的是<a href="mailto:&#103;&#x69;&#x74;&#64;&#x67;&#x69;&#116;&#104;&#117;&#x62;&#46;&#99;&#111;&#x6d;">&#103;&#x69;&#x74;&#64;&#x67;&#x69;&#116;&#104;&#117;&#x62;&#46;&#99;&#111;&#x6d;</a>:adairjun/adairjun.github.io.git</p>
 <p>注意:</p>
 <blockquote>
 <p>type,responsitory,branch前面的两个空格不能去掉。否则使用hexo server启动时会报错。</p>
@@ -542,6 +542,7 @@
 </section>
 
 
+
 </div>  
       <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
 
@@ -559,10 +560,9 @@
   
 <div class="github-card">
 <p class="asidetitle">Github 名片</p>
-<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<div class="github-card" data-github="adairjun" data-theme="medium"></div>
 <script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
 </div>
-  </div>
 
 
 
@@ -588,11 +588,15 @@
 		  
 		
 		  
-			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>1</sup></a></li>
 		  
 		
 		  
 			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/javascript/" title="javascript">javascript<sup>1</sup></a></li>
 		  
 		
 		  
@@ -782,9 +786,6 @@
 	 
 	<div class="social-font" class="clearfix">
 		
-		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
-		
-		
 		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
 		
 		
@@ -802,7 +803,7 @@
 		
 		
 		
-		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		<a href="mailto:xiongjun8817@outlook.com" target="_blank" class="icon-email" title="Email Me"></a>
 		
 	</div>
 			
@@ -813,11 +814,7 @@
 		
 		<a href="/about" target="_blank" title="adairjun">adairjun</a>
 		
-        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
-
-        <!--  站长统计代码 -->
-        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
-
+		
 		</p>
 </div>
 </footer>
@@ -977,6 +974,8 @@ var disqus_shortname = 'httpsxiongjuninfo';
 
 
 
+
+
 <link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
 <script src="/fancybox/jquery.fancybox.pack.js"></script>
 <script type="text/javascript">
@@ -1028,10 +1027,6 @@ $(document).ready(function(){
 <!-- Tiny_search Begin -->
 
 <!-- Tiny_search End -->
-<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
-</script>
 
   </body>
 </html>
-
-<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

@@ -164,7 +164,7 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git pull origin master</span><br></pre></td></tr></table></figure>
 <h3 id="使用git-fetch-和-git-rebase-origin来代替git-pull"><a href="#使用git-fetch-和-git-rebase-origin来代替git-pull" class="headerlink" title="使用git fetch 和 git rebase origin来代替git pull"></a>使用git fetch 和 git rebase origin来代替git pull</h3><p><a target="_blank" rel="noopener" href="http://www.oschina.net/translate/git-fetch-and-merge">git 少用pull 多用fetch和merge</a>这篇文章阐述了使用fetch来代替pull的原因，其实我觉得多数情况之下pull是没什么问题的。<br>下面是git fetch的使用方法：<br>首先使用<code>git remote -v</code>来查看git的远端代码</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">origin  git@github.com:username/project.git (fetch)</span><br><span class="line">origin  git@github.com:username/project.git (push)</span><br></pre></td></tr></table></figure>
-<p>这个意思就是说当fetch的时候，origin代表了<a href="mailto:&#x67;&#105;&#x74;&#64;&#x67;&#105;&#x74;&#104;&#117;&#x62;&#46;&#99;&#111;&#x6d;">&#x67;&#105;&#x74;&#64;&#x67;&#105;&#x74;&#104;&#117;&#x62;&#46;&#99;&#111;&#x6d;</a>:username/project.git,当pull的时候,origin代表了<a href="mailto:&#103;&#x69;&#116;&#64;&#x67;&#x69;&#116;&#104;&#117;&#98;&#46;&#x63;&#x6f;&#x6d;">&#103;&#x69;&#116;&#64;&#x67;&#x69;&#116;&#104;&#117;&#98;&#46;&#x63;&#x6f;&#x6d;</a>:username/project.git<br>那么拉取代码使用</p>
+<p>这个意思就是说当fetch的时候，origin代表了<a href="mailto:&#103;&#105;&#116;&#x40;&#103;&#x69;&#x74;&#104;&#x75;&#x62;&#46;&#x63;&#x6f;&#x6d;">&#103;&#105;&#116;&#x40;&#103;&#x69;&#x74;&#104;&#x75;&#x62;&#46;&#x63;&#x6f;&#x6d;</a>:username/project.git,当pull的时候,origin代表了<a href="mailto:&#x67;&#105;&#x74;&#64;&#x67;&#105;&#116;&#x68;&#117;&#x62;&#46;&#x63;&#x6f;&#109;">&#x67;&#105;&#x74;&#64;&#x67;&#105;&#116;&#x68;&#117;&#x62;&#46;&#x63;&#x6f;&#109;</a>:username/project.git<br>那么拉取代码使用</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git fetch origin</span><br></pre></td></tr></table></figure>
 <p>把从origin拉取下来的代码合并到本地使用</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git rebase origin</span><br></pre></td></tr></table></figure>
@@ -232,6 +232,7 @@
 </section>
 
 
+
 </div>  
       <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
 
@@ -249,10 +250,9 @@
   
 <div class="github-card">
 <p class="asidetitle">Github 名片</p>
-<div class="github-card" data-github="adairjun" data-width="220" data-height="119" data-theme="medium">
+<div class="github-card" data-github="adairjun" data-theme="medium"></div>
 <script type="text/javascript" src="//cdn.jsdelivr.net/github-cards/latest/widget.js" ></script>
 </div>
-  </div>
 
 
 
@@ -278,11 +278,15 @@
 		  
 		
 		  
-			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>2</sup></a></li>
+			<li><a href="/categories/gitlab/" title="gitlab">gitlab<sup>1</sup></a></li>
 		  
 		
 		  
 			<li><a href="/categories/hexo/" title="hexo">hexo<sup>1</sup></a></li>
+		  
+		
+		  
+			<li><a href="/categories/javascript/" title="javascript">javascript<sup>1</sup></a></li>
 		  
 		
 		  
@@ -472,9 +476,6 @@
 	 
 	<div class="social-font" class="clearfix">
 		
-		<a href="http://v2ex.com/member/adairjun" target="_blank" class="icon-v2ex" title="V2EX"></a>
-		
-		
 		<a href="http://weibo.com/adairjun" target="_blank" class="icon-weibo" title="微博"></a>
 		
 		
@@ -492,7 +493,7 @@
 		
 		
 		
-		<a href="mailto:adairjun@163.com" target="_blank" class="icon-email" title="Email Me"></a>
+		<a href="mailto:xiongjun8817@outlook.com" target="_blank" class="icon-email" title="Email Me"></a>
 		
 	</div>
 			
@@ -503,11 +504,7 @@
 		
 		<a href="/about" target="_blank" title="adairjun">adairjun</a>
 		
-        <br>你是第<span id="busuanzi_value_site_pv"></span>个到访的小伙伴, 博客uv量 <span id="busuanzi_value_site_uv"></span>, 文章pv量<span id="busuanzi_value_page_pv"></span>次
-
-        <!--  站长统计代码 -->
-        <script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1257708289'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1257708289%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
-
+		
 		</p>
 </div>
 </footer>
@@ -667,6 +664,8 @@ var disqus_shortname = 'httpsxiongjuninfo';
 
 
 
+
+
 <link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
 <script src="/fancybox/jquery.fancybox.pack.js"></script>
 <script type="text/javascript">
@@ -718,10 +717,6 @@ $(document).ready(function(){
 <!-- Tiny_search Begin -->
 
 <!-- Tiny_search End -->
-<script async src="https://dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js">
-</script>
 
   </body>
 </html>
-
-<a target="_blank" rel="noopener" href="https://github.com/adairjun"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>
